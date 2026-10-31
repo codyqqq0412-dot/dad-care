@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>曾維杰 照護紀錄 · Catatan Perawatan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#EAF0EE; --surface:#FFFFFF; --surface2:#F5F8F7; --ink:#13302F; --muted:#5C7472; --line:#D3DEDB;
+  --teal:#1F6F68; --teal-soft:#D7ECE8; --orange:#E2701F; --orange-soft:#FCE8D8; --slate:#6B7A8F; --slate-soft:#E4E8EF;
+  --red:#C2313B; --red-soft:#FADADD; --amber:#B7791F; --amber-soft:#FBF0D6; --blue:#2B6CB0; --green:#2F855A;
+  --font:"Lexend","Noto Sans TC",system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1D1C; --surface:#172827; --surface2:#1D302F; --ink:#E4EFEC; --muted:#93AAA6; --line:#2C4341;
+    --teal:#5CC2B6; --teal-soft:#1E3C39; --orange:#F39A55; --orange-soft:#3D2A1B; --slate:#A3B1C6; --slate-soft:#283342;
+    --red:#F07A82; --red-soft:#3E2124; --amber:#E7B65A; --amber-soft:#3A3020; --blue:#7FB0E8; --green:#6FCF97;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1D1C; --surface:#172827; --surface2:#1D302F; --ink:#E4EFEC; --muted:#93AAA6; --line:#2C4341;
+  --teal:#5CC2B6; --teal-soft:#1E3C39; --orange:#F39A55; --orange-soft:#3D2A1B; --slate:#A3B1C6; --slate-soft:#283342;
+  --red:#F07A82; --red-soft:#3E2124; --amber:#E7B65A; --amber-soft:#3A3020; --blue:#7FB0E8; --green:#6FCF97;
+  color-scheme: dark;
+}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 60px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.45}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+button,input,select,textarea{font:inherit;color:inherit}
+.zh{color:var(--muted);font-size:.82em;font-weight:400}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--surface);border-bottom:1px solid var(--line)}
+.top-in{max-width:1100px;margin:0 auto;padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.brand{font-weight:700;font-size:17px;margin-right:auto}
+.brand small{display:block;font-weight:400;font-size:12px;color:var(--muted)}
+.tabs{display:flex;gap:4px;background:var(--surface2);border-radius:12px;padding:3px}
+.tabs a{padding:7px 12px;border-radius:9px;text-decoration:none;color:var(--muted);font-size:14px;font-weight:500}
+.tabs a[aria-current="page"]{background:var(--teal);color:#fff}
+main{max-width:1100px;margin:0 auto;padding:14px 14px 120px}
+.notice{background:var(--amber-soft);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:14px}
+.notice.err{background:var(--red-soft)}
+.hidden{display:none!important}
+
+/* caregiver */
+.daybar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.daybar button{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-size:20px;cursor:pointer}
+.daybar .d{flex:1;text-align:center}
+.daybar .d input{border:none;background:transparent;font-size:19px;font-weight:600;text-align:center;width:100%}
+.daybar .d span{display:block;font-size:13px;color:var(--muted)}
+.save{font-size:12px;color:var(--muted);text-align:right;min-height:18px}
+.alerts{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.alert{background:var(--red-soft);color:var(--red);border-radius:10px;padding:10px 12px;font-weight:600;font-size:14px}
+.timeline{position:relative}
+.slot{display:grid;grid-template-columns:64px 1fr;gap:10px;margin-bottom:10px}
+.slot .time{font-weight:700;font-size:18px;padding-top:12px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.slot.now .time{color:var(--teal)}
+.slot.now .card{outline:2px solid var(--teal)}
+.slot.done .time::after{content:" ✓";color:var(--green);font-size:14px}
+.card{background:var(--surface);border-radius:14px;padding:12px 14px;border:1px solid var(--line)}
+.card h3{margin:0 0 8px;font-size:15px}
+.task{display:flex;gap:10px;align-items:center;padding:7px 0;border-top:1px dashed var(--line);cursor:pointer}
+.task:first-of-type{border-top:none}
+.task input{width:24px;height:24px;accent-color:var(--teal);flex:none}
+.task.checked span{color:var(--muted);text-decoration:line-through}
+.measure{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.field label{display:block;font-size:13px;font-weight:500;margin-bottom:3px}
+.field input[type=number],.field input[type=text],.field input[type=time],.field select,.field textarea{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--surface2);font-size:18px}
+.field input.big{font-size:24px;font-weight:600;text-align:center}
+.field textarea{font-size:15px;min-height:80px}
+.bad{border-color:var(--red)!important;background:var(--red-soft)!important;color:var(--red)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:8px 12px;border-radius:20px;border:1px solid var(--line);background:var(--surface2);cursor:pointer;font-size:14px}
+.chip[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:#fff}
+.chip.o[aria-pressed="true"]{background:var(--orange);border-color:var(--orange)}
+.chip.w[aria-pressed="true"]{background:var(--slate);border-color:var(--slate)}
+.ins{margin-top:10px;padding:10px;border-radius:12px}
+.ins.o{background:var(--orange-soft)}.ins.w{background:var(--slate-soft)}
+.rule{font-size:13px;margin:4px 0 8px}
+.hint{font-size:13px;font-weight:600;margin-top:6px}
+.hint.warn{color:var(--red)}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper button{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface2);font-size:22px;cursor:pointer}
+.stepper output{min-width:40px;text-align:center;font-size:22px;font-weight:700}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.toggle{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px dashed var(--line)}
+.toggle input{width:26px;height:26px;accent-color:var(--teal)}
+.loglist{font-size:14px;margin:6px 0 0;padding:0;list-style:none}
+.loglist li{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px dashed var(--line)}
+.loglist button{border:none;background:none;color:var(--red);font-size:18px;cursor:pointer}
+.quick{position:fixed;left:0;right:0;bottom:0;z-index:8;background:var(--surface);border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px))}
+.quick-in{max-width:700px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.qbtn{border:none;border-radius:12px;padding:8px 4px;cursor:pointer;background:var(--teal-soft);color:var(--ink);font-weight:600;font-size:14px;line-height:1.2}
+.qbtn b{display:block;font-size:20px}
+.qbtn .zh{display:block}
+dialog{border:none;border-radius:16px;padding:18px;background:var(--surface);color:var(--ink);width:min(420px,92vw)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog h3{margin:0 0 10px}
+.dlg-act{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.btn{padding:10px 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface2);cursor:pointer;font-weight:600}
+.btn.primary{background:var(--teal);border-color:var(--teal);color:#fff}
+
+/* doctor */
+.rangebar{display:flex;flex-wrap:wrap;gap:8px;align-items:end;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:14px}
+.rangebar .field input{font-size:15px;padding:8px}
+.rangebar .chips{margin-left:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.kpi .k{font-size:12px;color:var(--muted)}
+.kpi .v{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12px;color:var(--muted)}
+.kpi.warn .v{color:var(--red)}
+.grid2{display:grid;grid-template-columns:1fr;gap:14px}
+@media (min-width:900px){.grid2{grid-template-columns:1fr 1fr}}
+.chartcard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px}
+.chartcard h3{margin:0 0 6px;font-size:15px}
+.chartcard .cv{position:relative;height:260px}
+.chartcard.wide{grid-column:1/-1}
+.chartcard.wide .cv{height:320px}
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-top:14px}
+table{border-collapse:collapse;font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:center}
+th{position:sticky;top:0;background:var(--surface2);font-weight:600}
+td.hi{background:var(--red-soft);color:var(--red);font-weight:700}
+td.lo{background:var(--amber-soft);color:var(--amber);font-weight:700}
+.sec{margin:20px 0 8px;font-size:17px}
+.events{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:6px 14px}
+.events div{padding:7px 0;border-top:1px dashed var(--line);font-size:14px}
+.events div:first-child{border-top:none}
+
+/* settings */
+.set-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.set-grid .field input{font-size:16px}
+@media print{.quick,header.top,.rangebar .chips,#exportBtn{display:none!important}body{background:#fff}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+.login{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px}
+.login .card{width:min(380px,100%);padding:22px}
+.login h2{margin:0 0 4px;font-size:20px}
+.login input[type=password]{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--surface2);font-size:18px;margin:10px 0}
+.login .remember{display:flex;gap:8px;align-items:center;font-size:14px;margin-bottom:12px}
+.login .err{color:var(--red);font-size:14px;min-height:20px}
+.pos{display:flex;gap:12px;align-items:center}
+.pos svg{width:120px;height:auto;flex:none;background:var(--surface2);border-radius:12px}
+.pos .ptxt > b{font-size:18px;display:block}
+.posnow{background:var(--teal-soft);border-radius:14px;padding:12px;margin-bottom:12px}
+.posnow svg{width:110px}
+.milk{background:var(--teal-soft);border-radius:12px;padding:10px;margin-top:4px}
+.donebtn{margin-top:10px;width:100%;padding:12px;border-radius:12px;border:2px solid var(--teal);background:transparent;color:var(--teal);font-weight:700;font-size:16px;cursor:pointer}
+.donebtn[aria-pressed="true"]{background:var(--teal);color:#fff}
+.donebtn[aria-pressed="true"]::before{content:"✓ "}
+.userbar{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted)}
+.userbar button{border:1px solid var(--line);background:var(--surface2);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:13px}
+.svgfig{fill:var(--teal);opacity:.9}
+.svgbed{fill:var(--surface);stroke:var(--line);stroke-width:2}
+.svgpil{fill:var(--amber-soft);stroke:var(--amber);stroke-width:1.5}
+.svgtxt{fill:var(--muted);font-size:11px;font-family:var(--font)}
+.svgarrow{fill:none;stroke:var(--orange);stroke-width:4;stroke-linecap:round}
+.svgface{fill:var(--surface)}
+.guide{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.guide .card{text-align:center}
+.guide svg{width:100%;max-width:200px}
+.tabs a[aria-current="page"] .zh{color:#E6F4F1}
+@media (max-width:620px){
+  .top-in{padding:8px 10px;gap:6px}
+  .brand{font-size:15px}
+  .tabs{order:3;width:100%;overflow-x:auto}
+  .tabs a{white-space:nowrap;font-size:13px;padding:6px 9px;flex:1;text-align:center}
+  .tabs a .zh{display:none}
+  .pos{flex-wrap:wrap}
+  .pos svg{width:100%;max-width:180px;margin:0 auto}
+}
+</style>
+</head>
+<body>
+<div class="login" id="login">
+  <div class="card">
+    <h2>曾維杰 照護紀錄</h2>
+    <div class="zh">Catatan Perawatan Tuan Zeng Weijie</div>
+    <input type="password" id="pw" placeholder="Kata sandi 密碼" autocomplete="current-password">
+    <label class="remember"><input type="checkbox" id="remember" checked> Ingat di HP ini <span class="zh">在這支手機記住密碼</span></label>
+    <button class="btn primary" id="loginBtn" style="width:100%">Masuk 登入</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+</div>
+
+<header class="top"><div class="top-in">
+  <div class="brand">曾維杰 照護紀錄<small>Catatan Perawatan Tuan Zeng Weijie</small></div>
+  <nav class="tabs">
+    <a href="#catat" data-v="catat">📝 Perawat <span class="zh">看護填寫</span></a>
+    <a href="#posisi" data-v="posisi">🛏️ Posisi <span class="zh">翻身</span></a>
+    <a href="#laporan" data-v="laporan">📊 Laporan <span class="zh">醫師報表</span></a>
+    <a href="#setelan" data-v="setelan" id="tabSet" class="hidden">⚙️ <span class="zh">設定</span></a>
+  </nav>
+  <div class="userbar"><span id="roleTxt"></span><button id="logoutBtn">Keluar 登出</button></div>
+</div></header>
+
+<main>
+  <div id="sysNotice" class="notice hidden"></div>
+
+  <section id="v-catat" class="hidden">
+    <div class="daybar">
+      <button id="prevDay" aria-label="Hari sebelumnya">‹</button>
+      <div class="d"><input type="date" id="dayPick"><span id="dayName"></span></div>
+      <button id="nextDay" aria-label="Hari berikutnya">›</button>
+    </div>
+    <div class="save" id="saveState"></div>
+    <div id="posNow"></div>
+    <div class="alerts" id="alerts"></div>
+    <div class="timeline" id="timeline"></div>
+
+    <div class="card" style="margin-top:14px">
+      <h3>Ringkasan hari ini <span class="zh">今日總結</span></h3>
+      <div class="row2">
+        <div class="field"><label>Pijat akupunktur <span class="zh">穴位按摩次數</span></label>
+          <div class="stepper" data-k="acu"><button type="button" data-d="-1">−</button><output>0</output><button type="button" data-d="1">+</button></div></div>
+        <div class="field"><label>Rehabilitasi <span class="zh">復健次數</span></label>
+          <div class="stepper" data-k="rehab"><button type="button" data-d="-1">−</button><output>0</output><button type="button" data-d="1">+</button></div></div>
+        <div class="field"><label>Lap badan <span class="zh">擦拭身體次數</span></label>
+          <div class="stepper" data-k="wipe"><button type="button" data-d="-1">−</button><output>0</output><button type="button" data-d="1">+</button></div></div>
+        <div class="field"><label>Pipis (BAK) <span class="zh">小便次數</span></label>
+          <div class="stepper" data-k="urine"><button type="button" data-d="-1">−</button><output>0</output><button type="button" data-d="1">+</button></div></div>
+      </div>
+      <label class="toggle"><span>Mandi <span class="zh">沐浴洗澡</span></span><input type="checkbox" data-t="bath"></label>
+      <label class="toggle"><span>Enema <span class="zh">用浣腸</span></span><input type="checkbox" data-t="enema"></label>
+      <label class="toggle"><span>Ganti selang trakeostomi <span class="zh">更換氣切管</span></span><input type="checkbox" data-t="trach"></label>
+      <label class="toggle"><span>Ganti selang NGT (hidung-lambung) <span class="zh">更換鼻胃管</span></span><input type="checkbox" data-t="ngt"></label>
+      <div style="margin-top:8px"><b>BAB <span class="zh">大便紀錄</span></b><ul class="loglist" id="stoolList"></ul></div>
+      <div style="margin-top:8px"><b>Sedot dahak <span class="zh">抽痰紀錄</span></b><ul class="loglist" id="sucList"></ul></div>
+      <div class="field" style="margin-top:10px"><label>Catatan <span class="zh">備註（咳嗽、皮膚、精神狀況…）</span></label><textarea id="note"></textarea></div>
+    </div>
+  </section>
+
+  <section id="v-posisi" class="hidden">
+    <div class="notice">Cara melihat gambar: bapak dilihat dari atas, kepala di atas. Kiri/kanan = kiri/kanan <b>tubuh bapak</b>.<br><span class="zh">看圖方式：從上往下看爸爸，頭在上方。左右指的是「爸爸身體的」左右邊。</span></div>
+    <div class="guide" id="guide"></div>
+    <h2 class="sec">Jadwal ubah posisi <span class="zh">翻身時間表</span></h2>
+    <div class="card" id="turnTable"></div>
+  </section>
+
+  <section id="v-laporan" class="hidden">
+    <div class="rangebar">
+      <div class="field"><label>開始 Mulai</label><input type="date" id="rFrom"></div>
+      <div class="field"><label>結束 Selesai</label><input type="date" id="rTo"></div>
+      <div class="chips" id="rQuick">
+        <button class="chip" data-q="7">近7天 7 hari</button>
+        <button class="chip" data-q="30">近30天 30 hari</button>
+        <button class="chip" data-q="this">本月 Bulan ini</button>
+        <button class="chip" data-q="last">上個月 Bulan lalu</button>
+        <button class="chip" data-q="90">近3個月 3 bulan</button>
+      </div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="grid2">
+      <div class="chartcard wide"><h3>血糖趨勢＋胰島素施打點 Gula darah (mg/dL)</h3><div class="cv"><canvas id="cBG"></canvas></div></div>
+      <div class="chartcard"><h3>胰島素劑量 Dosis insulin (Unit)</h3><div class="cv"><canvas id="cIns"></canvas></div></div>
+      <div class="chartcard"><h3>各時段血糖 Gula darah per waktu</h3><div class="cv"><canvas id="cBGavg"></canvas></div></div>
+      <div class="chartcard wide"><h3>血壓 左手／右手 Tekanan darah kiri/kanan (mmHg)</h3><div class="cv"><canvas id="cBP"></canvas></div></div>
+      <div class="chartcard"><h3>心跳與體溫 Denyut & Suhu</h3><div class="cv"><canvas id="cHR"></canvas></div></div>
+      <div class="chartcard"><h3>血氧 SpO2 (%)</h3><div class="cv"><canvas id="cSpo"></canvas></div></div>
+      <div class="chartcard"><h3>牛奶種類與總量 Jenis & jumlah susu (ml)</h3><div class="cv"><canvas id="cMilk"></canvas></div></div>
+      <div class="chartcard"><h3>翻身完成次數 Ubah posisi (kali)</h3><div class="cv"><canvas id="cTurn"></canvas></div></div>
+      <div class="chartcard"><h3>排泄 小便／大便（▲浣腸） BAK / BAB</h3><div class="cv"><canvas id="cEx"></canvas></div></div>
+      <div class="chartcard"><h3>照護 復健／按摩／抽痰 Perawatan</h3><div class="cv"><canvas id="cCare"></canvas></div></div>
+    </div>
+    <h2 class="sec">重要事件 Kejadian penting</h2>
+    <div class="events" id="events"></div>
+    <h2 class="sec" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">每日明細 Data harian
+      <span><button class="btn" id="reloadBtn">重新整理 Muat ulang</button> <button class="btn" id="exportBtn">下載 CSV</button></span></h2>
+    <div class="tablewrap"><table id="tbl"></table></div>
+  </section>
+
+  <section id="v-setelan" class="hidden">
+    <div class="notice">這裡的設定會影響看護畫面的流程、提示與報表的超標判斷。請依醫師最新醫囑修改。</div>
+    <div class="card">
+      <h3>血糖量測與胰島素時間</h3>
+      <div class="set-grid" id="setTimes"></div>
+      <h3 style="margin-top:14px">胰島素規則</h3>
+      <div class="set-grid">
+        <div class="field"><label>短效(橘) 血糖 &gt; 多少才打</label><input type="number" data-c="stThr"></div>
+        <div class="field"><label>短效(橘) 每次劑量 Unit</label><input type="number" data-c="stDose"></div>
+        <div class="field"><label>長效(白) 判斷門檻 血糖 &gt;</label><input type="number" data-c="ltThr"></div>
+        <div class="field"><label>長效(白) 高於門檻打 Unit</label><input type="number" data-c="ltHi"></div>
+        <div class="field"><label>長效(白) 否則打 Unit</label><input type="number" data-c="ltLo"></div>
+      </div>
+      <h3 style="margin-top:14px">提醒範圍</h3>
+      <div class="set-grid">
+        <div class="field"><label>血糖偏低 &lt;</label><input type="number" data-c="bgLo"></div>
+        <div class="field"><label>血糖偏高 &gt;</label><input type="number" data-c="bgHi"></div>
+        <div class="field"><label>收縮壓上限</label><input type="number" data-c="sbp"></div>
+        <div class="field"><label>舒張壓上限</label><input type="number" data-c="dbp"></div>
+        <div class="field"><label>心跳下限</label><input type="number" data-c="hrLo"></div>
+        <div class="field"><label>心跳上限</label><input type="number" data-c="hrHi"></div>
+        <div class="field"><label>發燒 ≥ °C</label><input type="number" step="0.1" data-c="temp"></div>
+        <div class="field"><label>血氧偏低 &lt; %</label><input type="number" data-c="spo2"></div>
+        <div class="field"><label>連續幾天無大便算便秘</label><input type="number" data-c="constDays"></div>
+      </div>
+      <h3 style="margin-top:14px">牛奶種類（一行一種）</h3>
+      <div class="field"><textarea id="setMilkTypes" style="min-height:80px"></textarea></div>
+      <h3 style="margin-top:14px">牛奶時間表（時間 | 種類 | ml）</h3>
+      <div class="field"><textarea id="setMilks" style="min-height:160px"></textarea></div>
+      <h3 style="margin-top:14px">翻身時間表（時間 | telentang 平躺／kiri 左側／kanan 右側）</h3>
+      <div class="field"><textarea id="setTurns" style="min-height:220px"></textarea></div>
+      <h3 style="margin-top:14px">看護每日流程（時間 | 印尼文 · 中文，按摩項目後面加 #pijat）</h3>
+      <div class="field"><textarea id="setTasks" style="min-height:320px;font-size:14px"></textarea></div>
+      <div class="dlg-act"><button class="btn primary" id="saveCfg">儲存設定</button></div>
+      <div class="save" id="cfgState"></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3>更改密碼（至少 6 碼，留空表示不改）</h3>
+      <div class="set-grid">
+        <div class="field"><label>新的看護密碼</label><input type="password" id="newUserPw" autocomplete="new-password"></div>
+        <div class="field"><label>新的管理員密碼</label><input type="password" id="newAdminPw" autocomplete="new-password"></div>
+      </div>
+      <div class="dlg-act"><button class="btn primary" id="savePw">更改密碼</button></div>
+      <div class="save" id="pwState"></div>
+    </div>
+  </section>
+</main>
+
+<div class="quick hidden" id="quick"><div class="quick-in">
+  <button class="qbtn" id="qUrine"><b id="qUrineN">0</b>+ Pipis<span class="zh">小便</span></button>
+  <button class="qbtn" id="qStool"><b id="qStoolN">0</b>+ BAB<span class="zh">大便</span></button>
+  <button class="qbtn" id="qSuc"><b id="qSucN">0</b>+ Sedot dahak<span class="zh">抽痰</span></button>
+</div></div>
+
+<dialog id="dlgStool">
+  <h3>BAB <span class="zh">大便</span></h3>
+  <div class="field"><label>Jam <span class="zh">時間</span></label><input type="time" id="stT"></div>
+  <div class="field" style="margin-top:8px"><label>Jumlah <span class="zh">量</span></label>
+    <div class="chips" id="stAmt"><button class="chip" data-v="少">Sedikit 少</button><button class="chip" data-v="中">Sedang 中</button><button class="chip" data-v="多">Banyak 多</button></div></div>
+  <div class="field" style="margin-top:8px"><label>Jenis / warna <span class="zh">性狀顏色</span></label>
+    <div class="chips" id="stType"><button class="chip" data-v="成形">Padat 成形</button><button class="chip" data-v="糊狀">Lembek 糊狀</button><button class="chip" data-v="水樣">Cair 水樣</button><button class="chip" data-v="黑色">Hitam 黑色 ⚠</button><button class="chip" data-v="帶血">Berdarah 帶血 ⚠</button></div></div>
+  <div class="dlg-act"><button class="btn" data-close>Batal 取消</button><button class="btn primary" id="stOk">Simpan 儲存</button></div>
+</dialog>
+<dialog id="dlgSuc">
+  <h3>Sedot dahak <span class="zh">抽痰</span></h3>
+  <div class="field"><label>Jam <span class="zh">時間</span></label><input type="time" id="scT"></div>
+  <div class="field" style="margin-top:8px"><label>Warna <span class="zh">痰的顏色</span></label>
+    <div class="chips" id="scCol"><button class="chip" data-v="白">Bening/Putih 透明白</button><button class="chip" data-v="黃">Kuning 黃</button><button class="chip" data-v="綠">Hijau 綠 ⚠</button><button class="chip" data-v="血絲">Ada darah 血絲 ⚠</button></div></div>
+  <div class="field" style="margin-top:8px"><label>Banyaknya <span class="zh">量</span></label>
+    <div class="chips" id="scAmt"><button class="chip" data-v="少">Sedikit 少</button><button class="chip" data-v="中">Sedang 中</button><button class="chip" data-v="多">Banyak 多</button></div></div>
+  <div class="dlg-act"><button class="btn" data-close>Batal 取消</button><button class="btn primary" id="scOk">Simpan 儲存</button></div>
+</dialog>
+
+<script>
+"use strict";
+/* =========================================================
+   ★ 只需要改這一行：貼上你的 Google Apps Script 網頁應用程式網址
+   ========================================================= */
+const API_URL = "https://script.google.com/macros/s/AKfycbzsYCg3KLM8r_g1KXLBnvDN7T6COQojXLqytc4aSxL5bUN8Lneas-peU59FAS4fun5G/exec";
+
+/* ---------------- 預設設定（管理員可在網頁「設定」修改） ---------------- */
+const MILK_A = "桂格50鉻 Quaker", MILK_B = "益力壯17 Ensure";
+const DEFAULT_TASKS = [
+"06:00 | Tetes mata · 眼藥水",
+"06:00 | Lepas kaus kaki · 脫襪子",
+"06:30 | Obat barat setelah makan (2, 12) · 飯後西藥(2、12)",
+"07:30 | Obat Cina (jarak 1 jam dengan obat barat) · 中藥（與西藥間隔1小時）",
+"07:30 | Lap wajah, sikat gigi, vaselin bibir, lotion tangan · 擦臉刷牙塗凡士林擦乳液",
+"08:00 | Ganti kasa trakeostomi (yodium lalu garam) · 換氣切紗布（先優碘後生理食鹽水）",
+"08:00 | Ganti plester NGT · 換鼻胃貼",
+"08:30 | Obat sebelum makan (7) · 飯前西藥(7)",
+"09:30 | Obat setelah makan (3, 4, 5, 6, 8, 11) · 飯後西藥(3、4、5、6、8、11)",
+"10:00 | Pijat sendi tungkai · 肢體關節按摩 #pijat",
+"12:00 | Tetes mata · 眼藥水",
+"12:30 | Obat setelah makan (8, 12) · 飯後西藥(8、12)",
+"14:30 | Obat Cina · 中藥",
+"14:30 | Lap badan, lotion · 擦澡擦乳液",
+"16:00 | Pijat sendi tungkai · 肢體關節按摩 #pijat",
+"17:30 | Obat sebelum makan (7) · 飯前西藥(7)",
+"18:30 | Obat setelah makan (8, 11) · 飯後西藥(8、11)",
+"20:00 | Pijat sendi tungkai · 肢體關節按摩 #pijat",
+"21:00 | Tetes mata, salep mata, obat bokong · 眼藥水、眼藥膏、屁股擦藥",
+"21:30 | Obat setelah makan (5, 6, 8, 10, 12) · 飯後西藥(5、6、8、10、12)",
+"21:30 | Pakai kaus kaki, obat kaki · 穿襪子、腳擦藥",
+"23:00 | Obat Cina · 中藥",
+"23:00 | Pijat sendi, tepuk punggung · 肢體按摩、拍背 #pijat"
+].join("\n");
+const DEFAULT_MILKS = [
+  "06:00 | "+MILK_B+" | 250","09:00 | "+MILK_A+" | 250","12:00 | "+MILK_A+" | 250",
+  "15:00 | "+MILK_A+" | 250","18:00 | "+MILK_B+" | 250","21:00 | "+MILK_A+" | 250"].join("\n");
+const DEFAULT_TURNS = ["00:00 | telentang","02:00 | kanan","04:00 | kiri","06:00 | telentang","08:00 | kanan","10:00 | kiri",
+  "12:00 | telentang","14:00 | kanan","16:00 | kiri","18:00 | telentang","20:00 | kanan","22:00 | kiri"].join("\n");
+const DEFAULT_CFG = {
+  bgTimes:["05:30","10:30","18:00","21:00"], insTypes:["o","o","o","w"], vAm:"08:00", vPm:"22:00",
+  stThr:110, stDose:6, ltThr:130, ltHi:37, ltLo:35,
+  bgLo:70, bgHi:180, sbp:130, dbp:85, hrLo:60, hrHi:100, temp:37.5, spo2:95, constDays:3,
+  tasks:DEFAULT_TASKS, milks:DEFAULT_MILKS, milkTypes:MILK_A+"\n"+MILK_B, turns:DEFAULT_TURNS
+};
+let cfg = JSON.parse(JSON.stringify(DEFAULT_CFG));
+
+/* ---------------- 小工具 ---------------- */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const clone = o => JSON.parse(JSON.stringify(o));
+const pad = n => String(n).padStart(2,"0");
+const iso = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const parse = s => { const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); };
+const addDays = (s,n) => { const d=parse(s); d.setDate(d.getDate()+n); return iso(d); };
+const WD_ID = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+const WD_ZH = ["日","一","二","三","四","五","六"];
+const num = v => (v===""||v===null||v===undefined||isNaN(Number(v))) ? null : Number(v);
+const nowHM = () => { const d=new Date(); return pad(d.getHours())+":"+pad(d.getMinutes()); };
+const short = s => { const d=parse(s); return (d.getMonth()+1)+"/"+d.getDate(); };
+const normT = t => t.length===4 ? "0"+t : t;
+function esc(s){ return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function lines(txt){ return String(txt||"").split("\n").map(l=>l.trim()).filter(Boolean); }
+function parseTasks(txt){ return lines(txt).map(l=>{ const m=l.match(/^(\d{1,2}:\d{2})\s*\|\s*(.+)$/); if(!m) return null;
+  let label=m[2].trim(); const pijat=/#pijat\b/.test(label); label=label.replace(/#pijat\b/,"").trim();
+  const t=normT(m[1]); return {t,label,pijat,id:(t+"|"+label).replace(/\s+/g," ")}; }).filter(Boolean); }
+function parseMilks(txt){ return lines(txt).map(l=>{ const p=l.split("|").map(x=>x.trim()); if(!/^\d{1,2}:\d{2}$/.test(p[0]||"")) return null;
+  return {t:normT(p[0]), type:p[1]||"", ml:num(p[2])??250}; }).filter(Boolean); }
+function parseTurns(txt){ return lines(txt).map(l=>{ const p=l.split("|").map(x=>x.trim().toLowerCase()); if(!/^\d{1,2}:\d{2}$/.test(p[0]||"")) return null;
+  const pos=["kiri","kanan","telentang"].includes(p[1])?p[1]:"telentang"; return {t:normT(p[0]),pos}; }).filter(Boolean); }
+const milkTypes = () => lines(cfg.milkTypes);
+const POS = {
+  telentang:{id:"Telentang", zh:"平躺", desc:"Punggung di kasur, wajah ke atas.", dzh:"背部貼床、臉朝上。"},
+  kiri:{id:"Miring ke KIRI", zh:"左側躺", desc:"Bahu & pinggul KIRI bapak di bawah. Bantal di punggung, bantal di antara lutut.", dzh:"爸爸的「左」肩、左屁股在下面。背後墊枕頭，兩膝之間夾枕頭。"},
+  kanan:{id:"Miring ke KANAN", zh:"右側躺", desc:"Bahu & pinggul KANAN bapak di bawah. Bantal di punggung, bantal di antara lutut.", dzh:"爸爸的「右」肩、右屁股在下面。背後墊枕頭，兩膝之間夾枕頭。"}
+};
+
+/* 翻身示意圖：從上往下看，頭在上方。圖的右邊 = 爸爸的左邊 */
+function posSVG(pos){
+  const labels = `<text x="8" y="252" class="svgtxt">◀ Kanan 右</text><text x="192" y="252" class="svgtxt" text-anchor="end">Kiri 左 ▶</text>
+    <text x="100" y="14" class="svgtxt" text-anchor="middle">Kepala 頭</text>`;
+  const bed = `<rect x="20" y="20" width="160" height="220" rx="14" class="svgbed"/><rect x="55" y="26" width="90" height="26" rx="10" class="svgpil"/>`;
+  if(pos==="telentang"){
+    return `<svg viewBox="0 0 200 260" role="img" aria-label="Telentang 平躺">${bed}
+      <g class="svgfig"><circle cx="100" cy="62" r="17"/><rect x="72" y="80" width="56" height="78" rx="18"/>
+      <rect x="56" y="84" width="13" height="66" rx="6"/><rect x="131" y="84" width="13" height="66" rx="6"/>
+      <rect x="78" y="154" width="19" height="72" rx="8"/><rect x="103" y="154" width="19" height="72" rx="8"/></g>
+      <circle cx="94" cy="60" r="2.4" class="svgface"/><circle cx="106" cy="60" r="2.4" class="svgface"/>
+      <path d="M94 69 Q100 73 106 69" stroke="var(--surface)" stroke-width="2" fill="none"/>${labels}</svg>`;
+  }
+  // 左側躺：身體朝圖的右邊（爸爸的左邊）側躺，枕頭墊在背後（圖的左邊）
+  const fig = `<rect x="38" y="80" width="22" height="104" rx="9" class="svgpil"/>
+    <g class="svgfig"><circle cx="104" cy="62" r="16"/><rect x="82" y="80" width="34" height="80" rx="15"/>
+    <rect x="112" y="92" width="40" height="12" rx="6"/><rect x="112" y="110" width="34" height="12" rx="6"/>
+    <path d="M86 150 L128 168 L134 158 L94 140 Z"/><path d="M122 160 L114 226 L126 228 L136 166 Z"/>
+    <path d="M90 156 L118 192 L127 184 L100 150 Z"/><path d="M110 186 L104 228 L115 230 L124 192 Z"/></g>
+    <circle cx="112" cy="59" r="2.4" class="svgface"/><path d="M119 62 L124 65 L119 67" fill="var(--surface)"/>
+    <rect x="132" y="168" width="14" height="22" rx="5" class="svgpil"/>
+    <path d="M70 130 Q100 112 150 128" class="svgarrow"/><path d="M142 118 L152 129 L139 134" class="svgarrow"/>`;
+  const g = pos==="kiri" ? fig : `<g transform="translate(200,0) scale(-1,1)">${fig}</g>`;
+  const lab = pos==="kiri" ? "Miring kiri 左側躺" : "Miring kanan 右側躺";
+  return `<svg viewBox="0 0 200 260" role="img" aria-label="${lab}">${bed}${g}${labels}</svg>`;
+}
+function posText(pos){ const p=POS[pos]; return `<b>${p.id} · ${p.zh}</b><div style="font-size:14px">${p.desc}</div><div class="zh">${p.dzh}</div>`; }
+
+/* ---------------- 與後端溝通 ---------------- */
+let pw = "", role = "";
+async function api(action, data){
+  if(API_URL.startsWith("PASTE")) throw new Error("尚未設定 API_URL（請依說明貼上 Apps Script 網址）");
+  const r = await fetch(API_URL, {method:"POST", body:JSON.stringify(Object.assign({action, pw}, data||{}))});
+  const j = await r.json();
+  if(!j.ok){ if(j.error==="wrong_password" && action!=="login"){ logout("密碼已變更，請重新登入 Kata sandi berubah"); } throw new Error(j.error); }
+  return j;
+}
+const store = { get(k){ try{return localStorage.getItem(k);}catch(e){return null;} }, set(k,v){ try{localStorage.setItem(k,v);}catch(e){} }, del(k){ try{localStorage.removeItem(k);}catch(e){} } };
+function notice(html,err){ const n=$("#sysNotice"); if(!html){n.classList.add("hidden");return;} n.innerHTML=html; n.classList.toggle("err",!!err); n.classList.remove("hidden"); }
+
+async function login(p, silent){
+  $("#loginErr").textContent = silent ? "" : "Memeriksa… 驗證中";
+  pw = p;
+  try{
+    const j = await api("login"); role = j.role;
+    if($("#remember").checked) store.set("care_pw", p); else store.del("care_pw");
+    $("#login").classList.add("hidden");
+    $("#roleTxt").textContent = role==="admin" ? "管理員 Admin" : "Perawat 看護";
+    $("#tabSet").classList.toggle("hidden", role!=="admin");
+    await loadConfig();
+    route();
+  }catch(e){
+    pw=""; $("#login").classList.remove("hidden");
+    $("#loginErr").textContent = e.message==="wrong_password" ? "Kata sandi salah 密碼錯誤" : "無法連線 Tidak bisa terhubung："+e.message;
+  }
+}
+function logout(msg){ store.del("care_pw"); pw=""; role=""; $("#pw").value=""; $("#loginErr").textContent=msg||""; $("#login").classList.remove("hidden"); }
+$("#loginBtn").onclick = ()=>login($("#pw").value);
+$("#pw").onkeydown = e=>{ if(e.key==="Enter") login($("#pw").value); };
+$("#logoutBtn").onclick = ()=>logout();
+async function loadConfig(){
+  try{ const j=await api("getConfig"); cfg=Object.assign(clone(DEFAULT_CFG), j.config||{}); }
+  catch(e){ notice("讀取設定失敗："+esc(e.message),true); }
+}
+
+/* ---------------- 頁面切換 ---------------- */
+let view="catat";
+function route(){
+  if(!role) return;
+  const h=(location.hash||"#catat").slice(1);
+  view=["catat","posisi","laporan","setelan"].includes(h)?h:"catat";
+  if(view==="setelan" && role!=="admin") view="catat";
+  $$(".tabs a").forEach(a=>a.setAttribute("aria-current", a.dataset.v===view?"page":"false"));
+  for(const v of ["catat","posisi","laporan","setelan"]) $("#v-"+v).classList.toggle("hidden",v!==view);
+  $("#quick").classList.toggle("hidden",view!=="catat");
+  if(view==="catat") loadDay(curDay);
+  if(view==="posisi") renderGuide();
+  if(view==="laporan") loadReport();
+  if(view==="setelan") renderSettings();
+}
+window.addEventListener("hashchange",route);
+
+/* ================= 看護填寫 ================= */
+function emptyDay(id){ return {date:id,bg:{},ins:{},vam:{},vpm:{},urine:0,stool:[],suction:[],rehab:0,acu:0,wipe:0,
+  bath:false,enema:false,trach:false,ngt:false,tasks:{},milk:{},turns:{},note:""}; }
+function normDay(d,id){ const o=Object.assign(emptyDay(id), d?clone(d):{});
+  for(const k of ["bg","ins","vam","vpm","tasks","milk","turns"]) o[k]=o[k]||{};
+  for(const k of ["stool","suction"]) o[k]=Array.isArray(o[k])?o[k]:[]; o.date=id; return o; }
+function suggest(slot,bg){ if(bg===null) return null; if(cfg.insTypes[slot]==="w") return bg>cfg.ltThr?cfg.ltHi:cfg.ltLo; return bg>cfg.stThr?cfg.stDose:0; }
+
+let curDay=iso(new Date()), day=emptyDay(curDay), dirty=false, saving=false, saveTimer=null, loadSeq=0;
+async function loadDay(id){
+  curDay=id; $("#dayPick").value=id; const seq=++loadSeq;
+  if(!dirty){ day=emptyDay(id); renderTimeline(); }
+  $("#saveState").textContent="Memuat… 載入中";
+  try{ const j=await api("getDay",{date:id}); if(seq!==loadSeq||dirty) return;
+    day=normDay(j.day,id); renderTimeline(); $("#saveState").textContent=j.day?"":"Belum ada data hari ini 今天尚無資料"; }
+  catch(e){ if(seq===loadSeq) $("#saveState").textContent="載入失敗 Gagal memuat："+e.message; }
+}
+function touch(){ dirty=true; $("#saveState").textContent="Menyimpan… 儲存中"; clearTimeout(saveTimer); saveTimer=setTimeout(saveDay,1200); updateLive(); }
+async function saveDay(){
+  if(saving){ clearTimeout(saveTimer); saveTimer=setTimeout(saveDay,800); return; }
+  saving=true; const snap=JSON.stringify(day);
+  try{ const body=JSON.parse(snap); body.updatedAt=new Date().toISOString(); await api("saveDay",{day:body});
+    if(JSON.stringify(day)===snap) dirty=false;
+    $("#saveState").textContent = dirty ? "Menyimpan… 儲存中" : "Tersimpan ✓ 已儲存 "+nowHM(); }
+  catch(e){ $("#saveState").textContent="⚠ 儲存失敗，請檢查網路 Gagal menyimpan, cek internet ("+e.message+")"; clearTimeout(saveTimer); saveTimer=setTimeout(saveDay,8000); }
+  finally{ saving=false; }
+}
+async function setDay(id){ if(dirty){ clearTimeout(saveTimer); await saveDay(); } loadDay(id); }
+$("#prevDay").onclick=()=>setDay(addDays(curDay,-1));
+$("#nextDay").onclick=()=>setDay(addDays(curDay,1));
+$("#dayPick").onchange=e=>{ if(e.target.value) setDay(e.target.value); };
+window.addEventListener("beforeunload",e=>{ if(dirty){ e.preventDefault(); e.returnValue=""; } });
+
+function currentTurn(){
+  const ts=parseTurns(cfg.turns); if(!ts.length) return null;
+  const n=nowHM(); let cur=ts[ts.length-1], next=ts[0];
+  for(let i=0;i<ts.length;i++){ if(ts[i].t<=n){ cur=ts[i]; next=ts[(i+1)%ts.length]; } }
+  return {cur,next};
+}
+function renderPosNow(){
+  const box=$("#posNow");
+  if(curDay!==iso(new Date())){ box.innerHTML=""; return; }
+  const c=currentTurn(); if(!c){ box.innerHTML=""; return; }
+  box.innerHTML=`<div class="posnow pos">${posSVG(c.cur.pos)}<div class="ptxt"><div class="zh">Posisi sekarang (sejak ${c.cur.t}) · 目前應該的姿勢</div>${posText(c.cur.pos)}
+    <div style="margin-top:6px;font-size:14px">Berikutnya 下一次 <b>${c.next.t}</b>：${POS[c.next.pos].id} ${POS[c.next.pos].zh}</div></div></div>`;
+}
+
+function slotDone(items){
+  return items.every(it=>{
+    if(it.kind==="task") return !!day.tasks[it.id];
+    if(it.kind==="bg") return num(day.bg["s"+(it.slot+1)])!==null && day.ins["s"+(it.slot+1)]?.dose!==undefined;
+    if(it.kind==="vital"){ const v=day[it.which]; return num(v.hr)!==null && num(v.temp)!==null && (num(v.sysL)!==null||num(v.sysR)!==null); }
+    if(it.kind==="milk") return !!day.milk[it.t]?.done;
+    if(it.kind==="turn") return !!day.turns[it.t]?.done;
+    return true;
+  });
+}
+function renderTimeline(){
+  if(view!=="catat") return;
+  const d=parse(curDay);
+  $("#dayPick").value=curDay;
+  $("#dayName").textContent=WD_ID[d.getDay()]+" · 星期"+WD_ZH[d.getDay()]+(curDay===iso(new Date())?" · Hari ini 今天":"");
+  renderPosNow();
+  const items=[];
+  cfg.bgTimes.forEach((t,i)=>items.push({t,kind:"bg",slot:i}));
+  items.push({t:cfg.vAm,kind:"vital",which:"vam"}); items.push({t:cfg.vPm,kind:"vital",which:"vpm"});
+  parseMilks(cfg.milks).forEach(m=>items.push(Object.assign({kind:"milk"},m)));
+  parseTurns(cfg.turns).forEach(m=>items.push(Object.assign({kind:"turn"},m)));
+  parseTasks(cfg.tasks).forEach(x=>items.push(Object.assign({kind:"task"},x)));
+  const order={turn:0,bg:1,vital:2,milk:3,task:4};
+  const groups={}; items.forEach(it=>(groups[it.t]=groups[it.t]||[]).push(it));
+  const times=Object.keys(groups).sort();
+  const isToday=curDay===iso(new Date()), now=nowHM(); let nowT=null; if(isToday) for(const t of times) if(t<=now) nowT=t;
+  const html=times.map(t=>{ const g=groups[t].sort((a,b)=>order[a.kind]-order[b.kind]);
+    const cls=["slot"]; if(t===nowT) cls.push("now"); if(slotDone(g)) cls.push("done");
+    return `<div class="${cls.join(" ")}" id="t${t.replace(":","")}"><div class="time">${t}</div><div class="card">${g.map(itemHTML).join('<hr style="border:none;border-top:1px solid var(--line);margin:10px 0">')}</div></div>`; }).join("");
+  const y=window.scrollY; $("#timeline").innerHTML=html; window.scrollTo(0,y);
+  bindTimeline(); renderSummary(); updateLive();
+  if(isToday && nowT && !renderTimeline.scrolled){ renderTimeline.scrolled=true; document.getElementById("t"+nowT.replace(":",""))?.scrollIntoView({block:"start"}); }
+}
+function itemHTML(it){
+  if(it.kind==="task"){ const c=!!day.tasks[it.id]; const [idn,zh]=it.label.split(" · ");
+    return `<label class="task ${c?"checked":""}"><input type="checkbox" data-task="${esc(it.id)}" ${c?"checked":""} ${it.pijat?'data-pijat="1"':""}><span>${esc(idn)}${zh?` <span class="zh">${esc(zh)}</span>`:""}</span></label>`; }
+  if(it.kind==="turn"){ const r=day.turns[it.t]||{}; const actual=r.pos||it.pos;
+    return `<h3>🛏️ Ubah posisi <span class="zh">翻身</span></h3>
+      <div class="pos">${posSVG(it.pos)}<div class="ptxt"><div class="zh">Jadwal 排定</div>${posText(it.pos)}</div></div>
+      <div class="field" style="margin-top:8px"><label>Posisi yang dilakukan <span class="zh">實際翻成</span></label>
+      <div class="chips">${["telentang","kiri","kanan"].map(p=>`<button type="button" class="chip" data-turnpos="${it.t}" data-v="${p}" aria-pressed="${actual===p}">${POS[p].id} ${POS[p].zh}</button>`).join("")}</div></div>
+      <label class="toggle"><span>Ada kulit merah / luka tekan? <span class="zh">有皮膚發紅或壓瘡嗎？</span></span><input type="checkbox" data-turnskin="${it.t}" ${r.skin?"checked":""}></label>
+      <button type="button" class="donebtn" data-turndone="${it.t}" data-sched="${it.pos}" aria-pressed="${!!r.done}">Sudah diubah 已翻身${r.at?` (${r.at})`:""}</button>`; }
+  if(it.kind==="milk"){ const r=day.milk[it.t]||{}; const type=r.type||it.type, ml=r.ml??it.ml;
+    return `<h3>🍼 Susu <span class="zh">牛奶</span></h3>
+      <div class="milk"><div style="font-size:14px">Instruksi dokter <span class="zh">醫囑</span>：<b>${esc(it.type)}</b> · ${it.ml} ml</div>
+      <div class="field" style="margin-top:8px"><label>Susu yang diberikan <span class="zh">實際餵的牛奶</span></label>
+      <div class="chips">${milkTypes().map(m=>`<button type="button" class="chip" data-milktype="${it.t}" data-v="${esc(m)}" aria-pressed="${type===m}">${esc(m)}</button>`).join("")}</div></div>
+      <div class="field" style="margin-top:8px;max-width:160px"><label>Jumlah ml <span class="zh">毫升</span></label><input type="number" inputmode="numeric" data-milkml="${it.t}" value="${esc(ml)}"></div>
+      <div class="hint warn" data-milkhint="${it.t}"></div></div>
+      <button type="button" class="donebtn" data-milkdone="${it.t}" data-type="${esc(it.type)}" data-ml="${it.ml}" aria-pressed="${!!r.done}">Sudah diberikan 已餵完${r.at?` (${r.at})`:""}</button>`; }
+  if(it.kind==="bg"){
+    const s="s"+(it.slot+1), type=cfg.insTypes[it.slot], bg=day.bg[s]??"", ins=day.ins[s]||{};
+    const opts=type==="w"?[cfg.ltLo,cfg.ltHi]:[0,cfg.stDose];
+    const rule=type==="w"
+      ? `Aturan: gula darah &gt; ${cfg.ltThr} → ${cfg.ltHi} unit, selain itu ${cfg.ltLo} unit<br><span class="zh">長效(白)：血糖 &gt; ${cfg.ltThr} 打 ${cfg.ltHi}，否則打 ${cfg.ltLo}</span>`
+      : `Aturan: gula darah &gt; ${cfg.stThr} → ${cfg.stDose} unit, selain itu tidak disuntik<br><span class="zh">短效(橘)：血糖 &gt; ${cfg.stThr} 打 ${cfg.stDose}，否則不打</span>`;
+    return `<h3>🩸 Gula darah <span class="zh">測血糖</span></h3>
+      <div class="measure"><div class="field"><label>mg/dL</label><input class="big" type="number" inputmode="numeric" data-bg="${s}" value="${esc(bg)}"></div>
+      <div class="field"><label>Jari <span class="zh">手指</span></label><select data-bgf="${s}">${["","Kiri 左","Kanan 右"].map(o=>`<option ${day.bg[s+"f"]===o?"selected":""}>${o}</option>`).join("")}</select></div></div>
+      <div class="ins ${type}"><b>💉 Insulin ${type==="w"?"Putih 白色長效":"Oranye 橘色短效"}</b><div class="rule">${rule}</div>
+        <div class="chips">${opts.map(o=>`<button type="button" class="chip ${type}" data-ins="${s}" data-v="${o}" aria-pressed="${ins.dose===o}">${o===0?"Tidak 不打":o+" unit"}</button>`).join("")}
+          <input type="number" inputmode="numeric" placeholder="lain 其他" data-insx="${s}" value="${ins.dose!==undefined&&!opts.includes(ins.dose)?ins.dose:""}" style="width:90px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--surface)"></div>
+        <div class="field" style="margin-top:8px"><label>Lokasi suntik <span class="zh">施打部位</span></label>
+          <select data-site="${s}">${["","Lengan kiri 左手臂","Lengan kanan 右手臂","Perut kiri 左肚子","Perut kanan 右肚子","Paha kiri 左大腿","Paha kanan 右大腿"].map(o=>`<option ${ins.site===o?"selected":""}>${o}</option>`).join("")}</select></div>
+        <div class="hint" data-hint="${s}"></div></div>`;
+  }
+  if(it.kind==="vital"){ const v=day[it.which]||{}, w=it.which;
+    const f=(k,lab,step)=>`<div class="field"><label>${lab}</label><input type="number" inputmode="decimal" ${step?`step="${step}"`:""} data-vv="${w}.${k}" value="${esc(v[k]??"")}"></div>`;
+    return `<h3>❤️ Tanda vital ${w==="vam"?"pagi 早上":"malam 晚上（可選）"} <span class="zh">生命徵象</span></h3>
+      <div class="measure">${f("sysL","Sistolik kiri <span class='zh'>左手收縮壓</span>")}${f("diaL","Diastolik kiri <span class='zh'>左手舒張壓</span>")}
+      ${f("sysR","Sistolik kanan <span class='zh'>右手收縮壓</span>")}${f("diaR","Diastolik kanan <span class='zh'>右手舒張壓</span>")}
+      ${f("hr","Denyut <span class='zh'>心跳</span>")}${f("temp","Suhu °C <span class='zh'>體溫</span>","0.1")}${f("spo2","SpO2 % <span class='zh'>血氧</span>")}</div>
+      <div class="rule">Tangan kiri &amp; kanan bergantian setiap hari, isi salah satu. <span class="zh">左右手每天輪流量，填其中一手即可</span></div>`; }
+  return "";
+}
+function bindTimeline(){
+  const T="#timeline ";
+  $$(T+"[data-task]").forEach(el=>el.onchange=()=>{ day.tasks[el.dataset.task]=el.checked; el.closest(".task").classList.toggle("checked",el.checked);
+    if(el.dataset.pijat){ day.rehab=$$(T+"[data-pijat]").filter(x=>x.checked).length; } touch(); });
+  $$(T+"[data-bg]").forEach(el=>el.oninput=()=>{ const s=el.dataset.bg, v=num(el.value); if(v===null) delete day.bg[s]; else day.bg[s]=v; touch(); });
+  $$(T+"[data-bgf]").forEach(el=>el.onchange=()=>{ day.bg[el.dataset.bgf+"f"]=el.value; touch(); });
+  $$(T+"[data-ins]").forEach(el=>el.onclick=()=>{ const s=el.dataset.ins;
+    day.ins[s]=Object.assign(day.ins[s]||{},{dose:Number(el.dataset.v),type:cfg.insTypes[Number(s.slice(1))-1],t:nowHM()});
+    $$(`${T}[data-ins="${s}"]`).forEach(b=>b.setAttribute("aria-pressed",b===el)); $(`${T}[data-insx="${s}"]`).value=""; touch(); });
+  $$(T+"[data-insx]").forEach(el=>el.oninput=()=>{ const s=el.dataset.insx, v=num(el.value); if(v===null) return;
+    day.ins[s]=Object.assign(day.ins[s]||{},{dose:v,type:cfg.insTypes[Number(s.slice(1))-1],t:nowHM()});
+    $$(`${T}[data-ins="${s}"]`).forEach(b=>b.setAttribute("aria-pressed","false")); touch(); });
+  $$(T+"[data-site]").forEach(el=>el.onchange=()=>{ const s=el.dataset.site; day.ins[s]=Object.assign(day.ins[s]||{},{site:el.value}); touch(); });
+  $$(T+"[data-vv]").forEach(el=>el.oninput=()=>{ const [w,k]=el.dataset.vv.split("."); const v=num(el.value); if(v===null) delete day[w][k]; else day[w][k]=v; touch(); });
+  // 翻身
+  $$(T+"[data-turnpos]").forEach(el=>el.onclick=()=>{ const t=el.dataset.turnpos; day.turns[t]=Object.assign(day.turns[t]||{},{pos:el.dataset.v});
+    $$(`${T}[data-turnpos="${t}"]`).forEach(b=>b.setAttribute("aria-pressed",b===el)); touch(); });
+  $$(T+"[data-turnskin]").forEach(el=>el.onchange=()=>{ const t=el.dataset.turnskin; day.turns[t]=Object.assign(day.turns[t]||{},{skin:el.checked}); touch(); });
+  $$(T+"[data-turndone]").forEach(el=>el.onclick=()=>{ const t=el.dataset.turndone; const r=Object.assign({pos:el.dataset.sched},day.turns[t]||{});
+    r.done=!r.done; r.at=r.done?nowHM():""; day.turns[t]=r; el.setAttribute("aria-pressed",r.done); el.textContent="Sudah diubah 已翻身"+(r.at?` (${r.at})`:""); touch(); markDone(el); });
+  // 牛奶
+  $$(T+"[data-milktype]").forEach(el=>el.onclick=()=>{ const t=el.dataset.milktype; day.milk[t]=Object.assign(day.milk[t]||{},{type:el.dataset.v});
+    $$(`${T}[data-milktype="${t}"]`).forEach(b=>b.setAttribute("aria-pressed",b===el)); touch(); });
+  $$(T+"[data-milkml]").forEach(el=>el.oninput=()=>{ const t=el.dataset.milkml; day.milk[t]=Object.assign(day.milk[t]||{},{ml:num(el.value)}); touch(); });
+  $$(T+"[data-milkdone]").forEach(el=>el.onclick=()=>{ const t=el.dataset.milkdone;
+    const r=Object.assign({type:el.dataset.type, ml:Number(el.dataset.ml)}, day.milk[t]||{});
+    r.done=!r.done; r.at=r.done?nowHM():""; day.milk[t]=r; el.setAttribute("aria-pressed",r.done); el.textContent="Sudah diberikan 已餵完"+(r.at?` (${r.at})`:""); touch(); markDone(el); });
+}
+function markDone(el){ const slot=el.closest(".slot"); if(!slot) return; const t=slot.querySelector(".time").textContent;
+  const items=[]; cfg.bgTimes.forEach((x,i)=>{ if(x===t) items.push({kind:"bg",slot:i}); });
+  if(cfg.vAm===t) items.push({kind:"vital",which:"vam"}); if(cfg.vPm===t) items.push({kind:"vital",which:"vpm"});
+  parseMilks(cfg.milks).filter(m=>m.t===t).forEach(m=>items.push({kind:"milk",t}));
+  parseTurns(cfg.turns).filter(m=>m.t===t).forEach(m=>items.push({kind:"turn",t}));
+  parseTasks(cfg.tasks).filter(m=>m.t===t).forEach(m=>items.push(Object.assign({kind:"task"},m)));
+  slot.classList.toggle("done",slotDone(items)); }
+function updateLive(){
+  const T="#timeline ", alerts=[];
+  cfg.bgTimes.forEach((t,i)=>{ const s="s"+(i+1), bg=num(day.bg[s]), sug=suggest(i,bg), ins=day.ins[s], h=$(`${T}[data-hint="${s}"]`), inp=$(`${T}[data-bg="${s}"]`);
+    if(inp) inp.classList.toggle("bad",bg!==null&&(bg<cfg.bgLo||bg>cfg.bgHi));
+    if(bg!==null&&bg<cfg.bgLo) alerts.push(`⚠ ${t} Gula darah rendah ${bg}! Segera hubungi keluarga. 血糖偏低，立即通知家屬`);
+    if(bg!==null&&bg>cfg.bgHi) alerts.push(`⚠ ${t} Gula darah tinggi ${bg}. Hubungi keluarga. 血糖偏高，通知家屬`);
+    if(!h) return; if(sug===null){ h.textContent=""; h.className="hint"; return; }
+    const sugTxt=sug===0?"tidak disuntik":sug+" unit";
+    if(ins?.dose!==undefined&&ins.dose!==sug){ h.textContent=`⚠ Menurut aturan: ${sugTxt}, yang dicatat: ${ins.dose}. Mohon cek lagi. 與規則不同，請再確認`; h.className="hint warn"; }
+    else { h.textContent=`Menurut aturan 依規則：${sug===0?"tidak disuntik 不打":sug+" unit 單位"}`; h.className="hint"; } });
+  for(const w of ["vam","vpm"]){ const v=day[w], lab=w==="vam"?"pagi 早上":"malam 晚上";
+    const mark=(k,bad)=>{ const el=$(`${T}[data-vv="${w}.${k}"]`); if(el) el.classList.toggle("bad",!!bad); };
+    mark("sysL",num(v.sysL)>cfg.sbp); mark("sysR",num(v.sysR)>cfg.sbp); mark("diaL",num(v.diaL)>cfg.dbp); mark("diaR",num(v.diaR)>cfg.dbp);
+    mark("hr",num(v.hr)!==null&&(v.hr<cfg.hrLo||v.hr>cfg.hrHi)); mark("temp",num(v.temp)>=cfg.temp); mark("spo2",num(v.spo2)!==null&&v.spo2<cfg.spo2);
+    if(num(v.temp)>=cfg.temp) alerts.push(`⚠ Demam ${v.temp}°C (${lab}). Hubungi keluarga. 發燒，通知家屬`);
+    if(num(v.spo2)!==null&&v.spo2<cfg.spo2) alerts.push(`⚠ SpO2 rendah ${v.spo2}% (${lab}). 血氧偏低，通知家屬`); }
+  parseMilks(cfg.milks).forEach(m=>{ const h=$(`${T}[data-milkhint="${m.t}"]`); const r=day.milk[m.t]; if(!h) return;
+    h.textContent = r&&r.type&&r.type!==m.type ? `Berbeda dengan instruksi (${m.type}). 與醫囑不同，請確認` : ""; });
+  if(Object.values(day.turns).some(r=>r.skin)) alerts.push("⚠ Ada kulit merah / luka tekan. Beritahu keluarga. 皮膚發紅，請通知家屬");
+  if(day.stool.some(x=>x.type==="黑色"||x.type==="帶血")) alerts.push("⚠ BAB hitam / berdarah — segera hubungi keluarga. 大便黑色或帶血，立即通知家屬");
+  if(day.suction.some(x=>x.color==="綠"||x.color==="血絲")) alerts.push("⚠ Dahak hijau / ada darah — hubungi keluarga. 痰綠色或帶血絲，通知家屬");
+  $("#alerts").innerHTML=alerts.map(a=>`<div class="alert">${esc(a)}</div>`).join("");
+  $("#qUrineN").textContent=day.urine||0; $("#qStoolN").textContent=day.stool.length; $("#qSucN").textContent=day.suction.length;
+  $$(".stepper").forEach(st=>st.querySelector("output").textContent=day[st.dataset.k]||0);
+}
+function renderSummary(){
+  $$("[data-t]").forEach(el=>el.checked=!!day[el.dataset.t]);
+  $("#note").value=day.note||"";
+  const none=`<li><span class="zh">Belum ada · 尚無</span></li>`;
+  $("#stoolList").innerHTML=day.stool.length?day.stool.map((x,i)=>`<li><span>${esc(x.t||"--:--")} · ${esc(x.amt||"")} ${esc(x.type||"")}</span><button data-dels="${i}" aria-label="hapus">×</button></li>`).join(""):none;
+  $("#sucList").innerHTML=day.suction.length?day.suction.map((x,i)=>`<li><span>${esc(x.t||"--:--")} · ${esc(x.color||"")} ${esc(x.amt||"")}</span><button data-delc="${i}" aria-label="hapus">×</button></li>`).join(""):none;
+  $$("[data-dels]").forEach(b=>b.onclick=()=>{ if(confirm("Hapus? 刪除這筆？")){ day.stool.splice(Number(b.dataset.dels),1); renderSummary(); touch(); } });
+  $$("[data-delc]").forEach(b=>b.onclick=()=>{ if(confirm("Hapus? 刪除這筆？")){ day.suction.splice(Number(b.dataset.delc),1); renderSummary(); touch(); } });
+}
+$$(".stepper").forEach(st=>st.querySelectorAll("button").forEach(b=>b.onclick=()=>{ const k=st.dataset.k; day[k]=Math.max(0,(day[k]||0)+Number(b.dataset.d)); touch(); }));
+$$("[data-t]").forEach(el=>el.onchange=()=>{ day[el.dataset.t]=el.checked; touch(); });
+$("#note").oninput=e=>{ day.note=e.target.value; touch(); };
+$("#qUrine").onclick=()=>{ day.urine=(day.urine||0)+1; touch(); };
+function chipGroup(sel){ let val=""; $$(sel+" .chip").forEach(c=>c.onclick=()=>{ val=c.dataset.v; $$(sel+" .chip").forEach(x=>x.setAttribute("aria-pressed",x===c)); });
+  return {get:()=>val, reset:()=>{ val=""; $$(sel+" .chip").forEach(x=>x.setAttribute("aria-pressed","false")); }}; }
+const stAmt=chipGroup("#stAmt"), stType=chipGroup("#stType"), scCol=chipGroup("#scCol"), scAmt=chipGroup("#scAmt");
+$("#qStool").onclick=()=>{ stAmt.reset(); stType.reset(); $("#stT").value=nowHM(); $("#dlgStool").showModal(); };
+$("#qSuc").onclick=()=>{ scCol.reset(); scAmt.reset(); $("#scT").value=nowHM(); $("#dlgSuc").showModal(); };
+$("#stOk").onclick=()=>{ day.stool.push({t:$("#stT").value,amt:stAmt.get(),type:stType.get()}); day.stool.sort((a,b)=>(a.t||"").localeCompare(b.t||"")); $("#dlgStool").close(); renderSummary(); touch(); };
+$("#scOk").onclick=()=>{ day.suction.push({t:$("#scT").value,color:scCol.get(),amt:scAmt.get()}); day.suction.sort((a,b)=>(a.t||"").localeCompare(b.t||"")); $("#dlgSuc").close(); renderSummary(); touch(); };
+$$("[data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());
+setInterval(()=>{ if(view==="catat"&&!dirty&&curDay===iso(new Date())&&!document.activeElement?.matches("input,textarea,select")&&!document.querySelector("dialog[open]")) loadDay(curDay); },3*60*1000);
+
+/* ================= 翻身說明 ================= */
+function renderGuide(){
+  $("#guide").innerHTML=["telentang","kiri","kanan"].map(p=>`<div class="card">${posSVG(p)}<div style="text-align:left;margin-top:6px">${posText(p)}</div></div>`).join("");
+  $("#turnTable").innerHTML=`<table style="width:100%"><thead><tr><th>Jam 時間</th><th>Posisi 姿勢</th></tr></thead><tbody>${
+    parseTurns(cfg.turns).map(t=>`<tr><td>${t.t}</td><td>${POS[t.pos].id} · ${POS[t.pos].zh}</td></tr>`).join("")}</tbody></table>`;
+}
+
+/* ================= 醫師報表 ================= */
+let hist={}, histKey="", charts={};
+function setRange(q){
+  const today=iso(new Date()); let f,t=today;
+  if(q==="this"){ const d=new Date(); f=iso(new Date(d.getFullYear(),d.getMonth(),1)); }
+  else if(q==="last"){ const d=new Date(); f=iso(new Date(d.getFullYear(),d.getMonth()-1,1)); t=iso(new Date(d.getFullYear(),d.getMonth(),0)); }
+  else f=addDays(today,-(Number(q)-1));
+  $("#rFrom").value=f; $("#rTo").value=t; $$("#rQuick .chip").forEach(c=>c.setAttribute("aria-pressed",c.dataset.q===q)); loadReport();
+}
+$$("#rQuick .chip").forEach(c=>c.onclick=()=>setRange(c.dataset.q));
+$("#rFrom").onchange=$("#rTo").onchange=()=>{ $$("#rQuick .chip").forEach(c=>c.setAttribute("aria-pressed","false")); loadReport(); };
+$("#reloadBtn").onclick=()=>{ histKey=""; loadReport(); };
+async function loadReport(){
+  if(!$("#rFrom").value){ setRange("this"); return; }
+  const f=$("#rFrom").value, t=$("#rTo").value, today=iso(new Date());
+  const from=[f,addDays(today,-365)].sort()[0], to=[t,today].sort()[1], key=from+"_"+to;
+  if(key!==histKey){
+    $("#kpis").innerHTML=`<div class="kpi"><div class="k">載入中 Memuat…</div></div>`;
+    try{ const j=await api("getRange",{from,to}); hist={}; j.days.forEach(d=>hist[d.date]=normDay(d,d.date)); histKey=key; }
+    catch(e){ $("#kpis").innerHTML=`<div class="notice err">讀取失敗：${esc(e.message)}</div>`; return; }
+  }
+  renderReport();
+}
+function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function stats(arr){ const a=arr.filter(v=>v!==null); if(!a.length) return null; const s=a.reduce((x,y)=>x+y,0); return {avg:Math.round(s/a.length*10)/10,min:Math.min(...a),max:Math.max(...a),n:a.length}; }
+function mkChart(id,c){
+  if(typeof Chart==="undefined") return; if(charts[id]) charts[id].destroy();
+  Chart.defaults.font.family=cssVar("--font")||"sans-serif"; Chart.defaults.color=cssVar("--muted");
+  c.options=Object.assign({responsive:true,maintainAspectRatio:false,spanGaps:true,interaction:{mode:"index",intersect:false},plugins:{legend:{labels:{boxWidth:12,filter:i=>i.text!==""}}}},c.options||{});
+  const sc=c.options.scales||{x:{},y:{}}; for(const k in sc) sc[k].grid=Object.assign({color:cssVar("--line")},sc[k].grid||{}); c.options.scales=sc;
+  charts[id]=new Chart(document.getElementById(id),c);
+}
+let lastCSV=null;
+function renderReport(){
+  const f=$("#rFrom").value, t=$("#rTo").value;
+  const ids=[]; for(let d=f; d<=t && ids.length<800; d=addDays(d,1)) ids.push(d);
+  const rows=ids.map(id=>hist[id]||null), has=rows.filter(Boolean), labels=ids.map(short);
+  const bgS=[0,1,2,3].map(i=>rows.map(r=>r?num(r.bg["s"+(i+1)]):null));
+  const insS=[0,1,2,3].map(i=>rows.map(r=>r&&r.ins["s"+(i+1)]?num(r.ins["s"+(i+1)].dose):null));
+  const vv=(w,k)=>rows.map(r=>r?num(r[w][k]):null), pick=k=>rows.map(r=>r?(num(r.vam[k])??num(r.vpm[k])):null);
+  const both=k=>rows.flatMap(r=>r?[num(r.vam[k]),num(r.vpm[k])]:[]);
+  const allBg=bgS.flat().filter(v=>v!==null);
+  const sysAll=[...both("sysL"),...both("sysR")].filter(v=>v!==null), diaAll=[...both("diaL"),...both("diaR")].filter(v=>v!==null);
+  const sL=stats(both("sysL")),sR=stats(both("sysR")),dL=stats(both("diaL")),dR=stats(both("diaR")),hrS=stats(both("hr")),tS=stats(both("temp")),spS=stats(both("spo2"));
+  const bgHi=allBg.filter(v=>v>cfg.bgHi).length, bgLo=allBg.filter(v=>v<cfg.bgLo).length;
+  const inRange=allBg.length?Math.round(allBg.filter(v=>v>=cfg.bgLo&&v<=cfg.bgHi).length/allBg.length*100):null;
+  const stoolDays=has.filter(r=>r.stool.length>0).length, noStool=has.filter(r=>r.stool.length===0).length;
+  let streak=0,maxStreak=0; rows.forEach(r=>{ if(r&&r.stool.length===0){streak++;maxStreak=Math.max(maxStreak,streak);} else if(r) streak=0; });
+  const avg=k=>has.length?Math.round(has.reduce((s,r)=>s+(Number(k(r))||0),0)/has.length*10)/10:"–";
+  const stDoses=has.reduce((s,r)=>s+[1,2,3].filter(i=>num(r.ins["s"+i]?.dose)>0).length,0);
+  const ltHiDays=has.filter(r=>num(r.ins.s4?.dose)===cfg.ltHi).length, ltLoDays=has.filter(r=>num(r.ins.s4?.dose)===cfg.ltLo).length;
+  const mismatch=(r,i)=>{ const bg=num(r.bg["s"+(i+1)]), d=num(r.ins["s"+(i+1)]?.dose), s=suggest(i,bg); return bg!==null&&s!==null&&((d===null&&s>0)||(d!==null&&d!==s)); };
+  const mism=has.filter(r=>[0,1,2,3].some(i=>mismatch(r,i))).length;
+  const milkDone=r=>Object.values(r.milk).filter(m=>m.done);
+  const mTypes=milkTypes(); const milkByType=mTypes.map(m=>rows.map(r=>r?milkDone(r).filter(x=>x.type===m).reduce((s,x)=>s+(Number(x.ml)||0),0)||null:null));
+  const milkDays=has.filter(r=>milkDone(r).length); const milkAvg=milkDays.length?Math.round(milkDays.reduce((s,r)=>s+milkDone(r).reduce((a,x)=>a+(Number(x.ml)||0),0),0)/milkDays.length):null;
+  const turnSched=parseTurns(cfg.turns).length;
+  const turnDone=rows.map(r=>r?Object.values(r.turns).filter(x=>x.done).length:null);
+  const turnDays=has.filter(r=>Object.keys(r.turns).length);
+  const turnRate=turnDays.length&&turnSched?Math.round(turnDays.reduce((s,r)=>s+Object.values(r.turns).filter(x=>x.done).length,0)/(turnDays.length*turnSched)*100):null;
+  const skinDays=has.filter(r=>Object.values(r.turns).some(x=>x.skin)).length;
+  const lastEv=k=>{ const ks=Object.keys(hist).filter(id=>hist[id][k]).sort(); return ks.length?ks[ks.length-1]:null; };
+  const since=id=>id?Math.round((parse(iso(new Date()))-parse(id))/864e5):null;
+  const lt=lastEv("trach"), ln=lastEv("ngt");
+  const K=(zh,idn,v,s,warn)=>`<div class="kpi ${warn?"warn":""}"><div class="k">${zh} <span class="zh">${idn}</span></div><div class="v">${v}</div><div class="s">${s||""}</div></div>`;
+  const st=i=>stats(bgS[i]);
+  $("#kpis").innerHTML=[
+    K("有紀錄天數","Hari tercatat",has.length,`共 ${ids.length} 天`),
+    ...[0,1,2,3].map(i=>{ const s=st(i); return K(`血糖 ${cfg.bgTimes[i]}`,"rata-rata",s?s.avg:"–",s?`最低 ${s.min}／最高 ${s.max}`:""); }),
+    K("血糖達標率","dalam target",inRange===null?"–":inRange+"%",`${cfg.bgLo}–${cfg.bgHi} mg/dL`),
+    K("血糖超標次數","di luar target",bgHi+bgLo,`偏高 ${bgHi}／偏低 ${bgLo}`,bgHi+bgLo>0),
+    K("左手血壓平均","TD kiri",sL?`${sL.avg}/${dL?dL.avg:"–"}`:"–",sL?`收縮壓最高 ${sL.max}`:""),
+    K("右手血壓平均","TD kanan",sR?`${sR.avg}/${dR?dR.avg:"–"}`:"–",sR?`收縮壓最高 ${sR.max}`:""),
+    K("血壓超標次數","TD tinggi",sysAll.filter(v=>v>cfg.sbp).length+diaAll.filter(v=>v>cfg.dbp).length,`收縮>${cfg.sbp} 或 舒張>${cfg.dbp}`,sysAll.some(v=>v>cfg.sbp)||diaAll.some(v=>v>cfg.dbp)),
+    K("心跳平均","Denyut",hrS?hrS.avg:"–",hrS?`${hrS.min}–${hrS.max}`:""),
+    K("體溫","Suhu",tS?tS.avg:"–",tS?`最高 ${tS.max} °C`:"",tS&&tS.max>=cfg.temp),
+    K("血氧","SpO2",spS?spS.avg+"%":"–",spS?`最低 ${spS.min}%`:"尚未量測 belum diukur",spS&&spS.min<cfg.spo2),
+    K("每日牛奶量","Susu/hari",milkAvg===null?"–":milkAvg+" ml",mTypes.map((m,k)=>{ const tot=milkByType[k].reduce((a,v)=>a+(v||0),0); return tot?`${m.split(" ")[0]} 共 ${tot} ml`:""; }).filter(Boolean).join("／")),
+    K("翻身完成率","Ubah posisi",turnRate===null?"–":turnRate+"%",`每天排定 ${turnSched} 次`,turnRate!==null&&turnRate<80),
+    K("皮膚發紅天數","Kulit merah",skinDays,"天",skinDays>0),
+    K("平均小便","BAK/hari",avg(r=>r.urine),"次／天"),
+    K("有大便天數","Hari ada BAB",stoolDays,`無大便 ${noStool} 天`),
+    K("最長連續無大便","Tanpa BAB",maxStreak+" 天",`≥ ${cfg.constDays} 天視為便秘`,maxStreak>=cfg.constDays),
+    K("浣腸次數","Enema",has.filter(r=>r.enema).length,"次"),
+    K("復健／按摩","Rehab/pijat",avg(r=>r.rehab)+"／"+avg(r=>r.acu),"次／天"),
+    K("平均抽痰","Sedot dahak",avg(r=>r.suction.length),"次／天"),
+    K("短效(橘)施打","Insulin oranye",stDoses,"次"),
+    K("長效(白)劑量天數","Insulin putih",`${ltHiDays}／${ltLoDays}`,`${cfg.ltHi}U／${cfg.ltLo}U`),
+    K("劑量與規則不符","Dosis beda aturan",mism,"天，請核對",mism>0),
+    K("上次換氣切管","Ganti trakeostomi",lt?short(lt):"–",lt?`${since(lt)} 天前`:"尚無紀錄"),
+    K("上次換鼻胃管","Ganti NGT",ln?short(ln):"–",ln?`${since(ln)} 天前`:"尚無紀錄"),
+  ].join("");
+
+  const C=["#2B6CB0","#C2313B","#D69E2E","#2F855A"];
+  const flat=(v,c,label)=>({label,data:labels.map(()=>v),borderColor:c,borderDash:[5,5],borderWidth:1,pointRadius:0,fill:false});
+  const insPts=[0,1,2].map(i=>rows.map((r,j)=>insS[i][j]>0?bgS[i][j]:null));
+  mkChart("cBG",{type:"line",data:{labels,datasets:[
+    ...[0,1,2,3].map(i=>({label:cfg.bgTimes[i]+" 量測",data:bgS[i],borderColor:C[i],backgroundColor:C[i],tension:.25,pointRadius:3})),
+    ...[0,1,2].map(i=>({label:cfg.bgTimes[i]+" 打橘色",data:insPts[i],showLine:false,pointStyle:"triangle",pointRadius:8,borderColor:"#E2701F",backgroundColor:"#E2701F"})),
+    flat(cfg.bgHi,"#C2313B","上限 "+cfg.bgHi), flat(cfg.bgLo,"#D69E2E","下限 "+cfg.bgLo)]},
+    options:{scales:{x:{},y:{suggestedMin:60,suggestedMax:200,title:{display:true,text:"mg/dL"}}}}});
+  mkChart("cIns",{type:"bar",data:{labels,datasets:[
+    ...[0,1,2].map((i,k)=>({label:cfg.bgTimes[i]+" 橘 Oranye",data:insS[i],backgroundColor:["#F6AD55","#E2701F","#9C4221"][k],stack:"o"})),
+    {label:cfg.bgTimes[3]+" 白 Putih",data:insS[3],backgroundColor:"#8A99AF",stack:"w"}]},
+    options:{scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:"Unit"}}}}});
+  mkChart("cBGavg",{type:"bar",data:{labels:cfg.bgTimes,datasets:[
+    {label:"平均 Rata2",data:[0,1,2,3].map(i=>st(i)?.avg??null),backgroundColor:C},
+    {label:"最高 Maks",data:[0,1,2,3].map(i=>st(i)?.max??null),backgroundColor:"rgba(194,49,59,.35)"},
+    {label:"最低 Min",data:[0,1,2,3].map(i=>st(i)?.min??null),backgroundColor:"rgba(214,158,46,.35)"}]},options:{scales:{x:{},y:{beginAtZero:true}}}});
+  mkChart("cBP",{type:"line",data:{labels,datasets:[
+    {label:"左手收縮壓 Sis kiri",data:pick("sysL"),borderColor:"#7B3FB6",backgroundColor:"#7B3FB6",pointRadius:4},
+    {label:"右手收縮壓 Sis kanan",data:pick("sysR"),borderColor:"#C2313B",backgroundColor:"#C2313B",pointRadius:4,pointStyle:"rect"},
+    {label:"左手舒張壓 Dia kiri",data:pick("diaL"),borderColor:"#2B6CB0",backgroundColor:"#2B6CB0",pointRadius:4},
+    {label:"右手舒張壓 Dia kanan",data:pick("diaR"),borderColor:"#2F855A",backgroundColor:"#2F855A",pointRadius:4,pointStyle:"rect"},
+    flat(cfg.sbp,"#C2313B","收縮壓上限 "+cfg.sbp), flat(cfg.dbp,"#2B6CB0","舒張壓上限 "+cfg.dbp)]},
+    options:{scales:{x:{},y:{suggestedMin:50,suggestedMax:160,title:{display:true,text:"mmHg"}}}}});
+  mkChart("cHR",{type:"line",data:{labels,datasets:[
+    {label:"心跳 Denyut",data:pick("hr"),borderColor:"#C2313B",backgroundColor:"#C2313B",yAxisID:"y",tension:.25},
+    {label:"體溫 Suhu °C",data:pick("temp"),borderColor:"#2F855A",backgroundColor:"#2F855A",yAxisID:"y1",tension:.25}]},
+    options:{scales:{x:{},y:{position:"left",suggestedMin:50,suggestedMax:120},y1:{position:"right",suggestedMin:35,suggestedMax:39,grid:{drawOnChartArea:false}}}}});
+  mkChart("cSpo",{type:"line",data:{labels,datasets:[
+    {label:"早 pagi",data:vv("vam","spo2"),borderColor:"#2B6CB0",backgroundColor:"#2B6CB0"},
+    {label:"晚 malam",data:vv("vpm","spo2"),borderColor:"#805AD5",backgroundColor:"#805AD5"}, flat(cfg.spo2,"#C2313B","下限 "+cfg.spo2)]},
+    options:{scales:{x:{},y:{suggestedMin:85,suggestedMax:100}}}});
+  const MC=["#D69E2E","#3182CE","#38A169","#805AD5","#DD6B20"];
+  mkChart("cMilk",{type:"bar",data:{labels,datasets:mTypes.map((m,k)=>({label:m,data:milkByType[k],backgroundColor:MC[k%MC.length],stack:"m"}))},
+    options:{scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:"ml"}}}}});
+  mkChart("cTurn",{type:"bar",data:{labels,datasets:[{label:"完成 Selesai",data:turnDone,backgroundColor:"#1F6F68"},
+    {type:"line",label:"排定 Jadwal",data:labels.map(()=>turnSched),borderColor:"#8A99AF",borderDash:[5,5],pointRadius:0}]},options:{scales:{x:{},y:{beginAtZero:true}}}});
+  mkChart("cEx",{type:"bar",data:{labels,datasets:[
+    {label:"小便 BAK",data:rows.map(r=>r?r.urine:null),backgroundColor:"#D69E2E"},
+    {label:"大便 BAB",data:rows.map(r=>r?r.stool.length:null),backgroundColor:"#8B5E3C"},
+    {type:"line",label:"浣腸 Enema",data:rows.map(r=>r&&r.enema?1:null),showLine:false,pointStyle:"triangle",pointRadius:9,borderColor:"#C2313B",backgroundColor:"#C2313B"}]},
+    options:{scales:{x:{},y:{beginAtZero:true}}}});
+  mkChart("cCare",{type:"bar",data:{labels,datasets:[
+    {label:"復健 Rehab",data:rows.map(r=>r?r.rehab:null),backgroundColor:"#1F6F68"},
+    {label:"按摩 Akupunktur",data:rows.map(r=>r?r.acu:null),backgroundColor:"#5CC2B6"},
+    {label:"抽痰 Dahak",data:rows.map(r=>r?r.suction.length:null),backgroundColor:"#805AD5"},
+    {label:"擦澡 Lap",data:rows.map(r=>r?r.wipe:null),backgroundColor:"#A0AEC0"}]},options:{scales:{x:{},y:{beginAtZero:true}}}});
+
+  const ev=[];
+  rows.forEach((r,j)=>{ if(!r) return; const d=short(ids[j]);
+    if(r.trach) ev.push(`${d}　更換氣切管 Ganti trakeostomi`); if(r.ngt) ev.push(`${d}　更換鼻胃管 Ganti NGT`);
+    if(r.enema) ev.push(`${d}　使用浣腸 Enema`); if(r.bath) ev.push(`${d}　沐浴洗澡 Mandi`);
+    Object.entries(r.turns).filter(([,x])=>x.skin).forEach(([t])=>ev.push(`${d} ${t}　⚠ 皮膚發紅 Kulit merah`));
+    r.stool.filter(x=>["黑色","帶血","水樣"].includes(x.type)).forEach(x=>ev.push(`${d} ${x.t||""}　⚠ 大便${x.type}`));
+    r.suction.filter(x=>x.color==="綠"||x.color==="血絲").forEach(x=>ev.push(`${d} ${x.t||""}　⚠ 痰${x.color}`));
+    ["vam","vpm"].forEach(w=>{ if(num(r[w].temp)>=cfg.temp) ev.push(`${d}　⚠ 體溫 ${r[w].temp}°C`); if(num(r[w].spo2)!==null&&r[w].spo2<cfg.spo2) ev.push(`${d}　⚠ 血氧 ${r[w].spo2}%`); });
+    [0,1,2,3].forEach(i=>{ if(mismatch(r,i)) ev.push(`${d} ${cfg.bgTimes[i]}　胰島素核對：血糖 ${r.bg["s"+(i+1)]}，規則 ${suggest(i,num(r.bg["s"+(i+1)]))}U，實打 ${r.ins["s"+(i+1)]?.dose??"未填"}`); });
+    if(r.note) ev.push(`${d}　備註 Catatan：${r.note}`); });
+  $("#events").innerHTML=ev.length?ev.map(e=>`<div>${esc(e)}</div>`).join(""):`<div class="zh">沒有特別事件 Tidak ada kejadian khusus</div>`;
+
+  const H=["日期 Tgl","星期",...cfg.bgTimes.map(t=>"血糖 "+t),...cfg.bgTimes.map((t,i)=>"胰島素 "+t+(cfg.insTypes[i]==="w"?" 白":" 橘")),
+    "左手血壓 kiri","右手血壓 kanan","心跳","體溫","血氧","牛奶 ml","翻身","小便","大便","大便性狀","浣腸","抽痰","痰色","復健","按摩","擦澡","洗澡","換氣切管","換鼻胃管","備註 Catatan"];
+  const bp=(r,s,d)=>{ const a=num(r.vam[s])??num(r.vpm[s]), b=num(r.vam[d])??num(r.vpm[d]); return a===null&&b===null?["",""]:[`${a??"–"}/${b??"–"}`,(a>cfg.sbp||b>cfg.dbp)?"hi":""]; };
+  const cell=(v,c)=>`<td class="${c||""}">${esc(v??"")}</td>`;
+  const csv=[H];
+  const body=rows.map((r,j)=>{ const id=ids[j], dw=WD_ZH[parse(id).getDay()];
+    if(!r) return `<tr><td>${short(id)}</td><td>${dw}</td><td colspan="${H.length-2}" class="zh" style="text-align:left">無紀錄 Tidak ada data</td></tr>`;
+    const bgc=v=>v===null?"":(v>cfg.bgHi?"hi":v<cfg.bgLo?"lo":"");
+    const L=bp(r,"sysL","diaL"), R=bp(r,"sysR","diaR"), hr=num(r.vam.hr)??num(r.vpm.hr), tp=num(r.vam.temp)??num(r.vpm.temp), sp=num(r.vam.spo2)??num(r.vpm.spo2);
+    const ml=milkDone(r).reduce((s,x)=>s+(Number(x.ml)||0),0), tn=Object.values(r.turns).filter(x=>x.done).length;
+    const vals=[id,dw,...[0,1,2,3].map(i=>r.bg["s"+(i+1)]??""),...[0,1,2,3].map(i=>r.ins["s"+(i+1)]?.dose??""),L[0],R[0],hr??"",tp??"",sp??"",ml||"",tn||"",
+      r.urine,r.stool.length,r.stool.map(x=>x.type).filter(Boolean).join("/"),r.enema?"✓":"",r.suction.length,r.suction.map(x=>x.color).filter(Boolean).join("/"),
+      r.rehab,r.acu,r.wipe,r.bath?"✓":"",r.trach?"✓":"",r.ngt?"✓":"",r.note||""];
+    csv.push(vals);
+    return `<tr>${cell(short(id))}${cell(dw)}${[0,1,2,3].map(i=>{const v=num(r.bg["s"+(i+1)]);return cell(v,bgc(v));}).join("")}
+      ${[0,1,2,3].map(i=>cell(r.ins["s"+(i+1)]?.dose??"",mismatch(r,i)?"lo":"")).join("")}
+      ${cell(L[0],L[1])}${cell(R[0],R[1])}${cell(hr,hr!==null&&(hr<cfg.hrLo||hr>cfg.hrHi)?"hi":"")}${cell(tp,tp>=cfg.temp?"hi":"")}${cell(sp,sp!==null&&sp<cfg.spo2?"hi":"")}
+      ${cell(ml||"")}${cell(tn||"")}${cell(r.urine)}${cell(r.stool.length,r.stool.length===0?"lo":"")}${cell(vals[19])}${cell(vals[20])}${cell(r.suction.length)}${cell(vals[22])}
+      ${cell(r.rehab)}${cell(r.acu)}${cell(r.wipe)}${cell(vals[26])}${cell(vals[27])}${cell(vals[28])}<td style="text-align:left">${esc(r.note||"")}</td></tr>`; }).join("");
+  $("#tbl").innerHTML=`<thead><tr>${H.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${body}</tbody>`;
+  lastCSV="\ufeff"+csv.map(r=>r.map(v=>{ const s=String(v??""); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }).join(",")).join("\n");
+}
+$("#exportBtn").onclick=()=>{ if(!lastCSV) return; const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([lastCSV],{type:"text/csv"})); a.download=`爸爸健康紀錄_${$("#rFrom").value}_${$("#rTo").value}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); };
+
+/* ================= 設定 ================= */
+function renderSettings(){
+  $("#setTimes").innerHTML=cfg.bgTimes.map((t,i)=>`<div class="field"><label>第${i+1}次血糖＋胰島素（${cfg.insTypes[i]==="w"?"白色長效":"橘色短效"}）</label><input type="time" data-bt="${i}" value="${t}"></div>`).join("")
+    +`<div class="field"><label>早上生命徵象時間</label><input type="time" data-vt="vAm" value="${cfg.vAm}"></div><div class="field"><label>晚上生命徵象時間</label><input type="time" data-vt="vPm" value="${cfg.vPm}"></div>`;
+  $$("[data-c]").forEach(el=>el.value=cfg[el.dataset.c]);
+  $("#setTasks").value=cfg.tasks; $("#setMilks").value=cfg.milks; $("#setMilkTypes").value=cfg.milkTypes; $("#setTurns").value=cfg.turns;
+}
+$("#saveCfg").onclick=async()=>{
+  const n=clone(cfg);
+  $$("[data-bt]").forEach(el=>n.bgTimes[Number(el.dataset.bt)]=el.value);
+  $$("[data-vt]").forEach(el=>n[el.dataset.vt]=el.value);
+  $$("[data-c]").forEach(el=>{ const v=num(el.value); if(v!==null) n[el.dataset.c]=v; });
+  n.tasks=$("#setTasks").value; n.milks=$("#setMilks").value; n.milkTypes=$("#setMilkTypes").value; n.turns=$("#setTurns").value;
+  const types=lines(n.milkTypes), bad=parseMilks(n.milks).filter(m=>!types.includes(m.type));
+  if(bad.length){ $("#cfgState").textContent="⚠ 牛奶時間表的種類要和「牛奶種類」完全一樣："+bad.map(b=>b.t+" "+b.type).join("、"); return; }
+  $("#cfgState").textContent="儲存中…";
+  try{ await api("saveConfig",{config:n}); cfg=n; $("#cfgState").textContent="已儲存 "+nowHM(); }catch(e){ $("#cfgState").textContent="儲存失敗："+e.message; }
+};
+$("#savePw").onclick=async()=>{
+  const u=$("#newUserPw").value, a=$("#newAdminPw").value;
+  if(!u&&!a){ $("#pwState").textContent="請輸入新密碼"; return; }
+  if((u&&u.length<6)||(a&&a.length<6)){ $("#pwState").textContent="密碼至少 6 碼"; return; }
+  try{ await api("setPasswords",{userPw:u,adminPw:a}); $("#pwState").textContent="密碼已更改"+(a?"，請用新的管理員密碼重新登入":""); $("#newUserPw").value=$("#newAdminPw").value="";
+    if(a){ pw=a; if(store.get("care_pw")) store.set("care_pw",a); } }
+  catch(e){ $("#pwState").textContent="更改失敗："+e.message; }
+};
+
+/* ================= 啟動 ================= */
+$("#dayPick").value=curDay;
+const saved=store.get("care_pw");
+if(saved) login(saved,true); else $("#pw").focus();
+
+</script>
+</body>
+</html>
