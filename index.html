@@ -178,6 +178,12 @@ td.lo{background:var(--amber-soft);color:var(--amber);font-weight:700}
   .pos{flex-wrap:wrap}
   .pos svg{width:100%;max-width:180px;margin:0 auto}
 }
+.qpair{display:flex;gap:4px}
+.qpair .qbtn:last-child{flex:1}
+.qminus{width:46px;flex:none;font-size:26px;font-weight:700;background:var(--red-soft);color:var(--red)}
+#toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;
+  background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;z-index:30;transition:opacity .2s,transform .2s;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
@@ -327,7 +333,7 @@ td.lo{background:var(--amber-soft);color:var(--amber);font-weight:700}
 </main>
 
 <div class="quick hidden" id="quick"><div class="quick-in">
-  <button class="qbtn" id="qUrine"><b id="qUrineN">0</b>+ Pipis<span class="zh">小便</span></button>
+  <div class="qpair"><button class="qbtn qminus" id="qUrineMinus" aria-label="Kurangi pipis 小便減1">−</button><button class="qbtn" id="qUrine"><b id="qUrineN">0</b>+ Pipis<span class="zh">小便</span></button></div>
   <button class="qbtn" id="qStool"><b id="qStoolN">0</b>+ BAB<span class="zh">大便</span></button>
   <button class="qbtn" id="qSuc"><b id="qSucN">0</b>+ Sedot dahak<span class="zh">抽痰</span></button>
 </div></div>
@@ -705,7 +711,10 @@ function renderSummary(){
 $$(".stepper").forEach(st=>st.querySelectorAll("button").forEach(b=>b.onclick=()=>{ const k=st.dataset.k; day[k]=Math.max(0,(day[k]||0)+Number(b.dataset.d)); touch(); }));
 $$("[data-t]").forEach(el=>el.onchange=()=>{ day[el.dataset.t]=el.checked; touch(); });
 $("#note").oninput=e=>{ day.note=e.target.value; touch(); };
-$("#qUrine").onclick=()=>{ day.urine=(day.urine||0)+1; touch(); };
+$("#qUrine").onclick=()=>{ day.urine=(day.urine||0)+1; touch(); flash("Pipis +1 · 小便 +1（按錯可按 − 減回）"); };
+$("#qUrineMinus").onclick=()=>{ if(!(day.urine>0)) return; day.urine=day.urine-1; touch(); flash("Pipis −1 · 小便 −1"); };
+function flash(msg){ let t=document.getElementById("toast"); if(!t){ t=document.createElement("div"); t.id="toast"; document.body.appendChild(t); }
+  t.textContent=msg; t.classList.add("show"); clearTimeout(flash.tm); flash.tm=setTimeout(()=>t.classList.remove("show"),2200); }
 function chipGroup(sel){ let val=""; $$(sel+" .chip").forEach(c=>c.onclick=()=>{ val=c.dataset.v; $$(sel+" .chip").forEach(x=>x.setAttribute("aria-pressed",x===c)); });
   return {get:()=>val, reset:()=>{ val=""; $$(sel+" .chip").forEach(x=>x.setAttribute("aria-pressed","false")); }}; }
 const stAmt=chipGroup("#stAmt"), stType=chipGroup("#stType"), scCol=chipGroup("#scCol"), scAmt=chipGroup("#scAmt");
