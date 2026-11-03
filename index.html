@@ -184,6 +184,15 @@ td.lo{background:var(--amber-soft);color:var(--amber);font-weight:700}
 #toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;
   background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;z-index:30;transition:opacity .2s,transform .2s;max-width:90vw;text-align:center}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.slotrow{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px;background:var(--surface2)}
+.slotrow .set-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+.slotrow .field input,.slotrow .field select{font-size:15px;padding:8px}
+.slotrow .hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-weight:700}
+.slotrow .del{border:none;background:none;color:var(--red);font-size:14px;cursor:pointer}
+.slotrow .rl{font-size:12px;color:var(--muted);margin-top:6px}
+.tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:10px;background:var(--teal-soft);margin-left:6px;font-weight:600}
+.tag.post{background:var(--amber-soft)}
+.recheck{margin-top:8px;padding:8px;border-radius:10px;background:var(--red-soft)}
 </style>
 </head>
 <body>
@@ -287,20 +296,21 @@ td.lo{background:var(--amber-soft);color:var(--amber);font-weight:700}
   <section id="v-setelan" class="hidden">
     <div class="notice">這裡的設定會影響看護畫面的流程、提示與報表的超標判斷。請依醫師最新醫囑修改。</div>
     <div class="card">
-      <h3>血糖量測與胰島素時間</h3>
-      <div class="set-grid" id="setTimes"></div>
-      <h3 style="margin-top:14px">胰島素規則</h3>
+      <h3>量血糖與胰島素時間表</h3>
+      <div class="rule" style="margin-bottom:8px">每一列是一次量血糖。可以設定飯前或飯後、要不要打胰島素、打哪一種、幾點打，以及劑量規則。
+        修改後從<b>還沒開始填寫的日子</b>生效；已經填過血糖的日子會保留當天的時間表，報表不會混亂。</div>
+      <div id="slotRows"></div>
+      <div class="dlg-act" style="justify-content:flex-start"><button class="btn" id="addSlot">＋ 新增一次量血糖</button></div>
+      <h3 style="margin-top:14px">血糖警示與低血糖處理（全部時段共用）</h3>
       <div class="set-grid">
-        <div class="field"><label>短效(橘) 血糖 &gt; 多少才打</label><input type="number" data-c="stThr"></div>
-        <div class="field"><label>短效(橘) 每次劑量 Unit</label><input type="number" data-c="stDose"></div>
-        <div class="field"><label>長效(白) 判斷門檻 血糖 &gt;</label><input type="number" data-c="ltThr"></div>
-        <div class="field"><label>長效(白) 高於門檻打 Unit</label><input type="number" data-c="ltHi"></div>
-        <div class="field"><label>長效(白) 否則打 Unit</label><input type="number" data-c="ltLo"></div>
+        <div class="field"><label>低於多少要通知家人</label><input type="number" data-c="bgLo"></div>
+        <div class="field"><label>低於多少「不打任何胰島素」並先灌牛奶</label><input type="number" data-c="bgHold"></div>
+        <div class="field"><label>灌牛奶後幾分鐘再量</label><input type="number" data-c="recheckMin"></div>
+        <div class="field"><label>再量要高於多少才算回升</label><input type="number" data-c="recheckOk"></div>
+        <div class="field"><label>高於（含）多少要通知家屬及家庭醫師</label><input type="number" data-c="bgHi"></div>
       </div>
-      <h3 style="margin-top:14px">提醒範圍</h3>
+      <h3 style="margin-top:14px">其他提醒範圍</h3>
       <div class="set-grid">
-        <div class="field"><label>血糖偏低 &lt;</label><input type="number" data-c="bgLo"></div>
-        <div class="field"><label>血糖偏高 &gt;</label><input type="number" data-c="bgHi"></div>
         <div class="field"><label>收縮壓上限</label><input type="number" data-c="sbp"></div>
         <div class="field"><label>舒張壓上限</label><input type="number" data-c="dbp"></div>
         <div class="field"><label>心跳下限</label><input type="number" data-c="hrLo"></div>
@@ -396,12 +406,28 @@ const DEFAULT_MILKS = [
   "15:00 | "+MILK_A+" | 250","18:00 | "+MILK_B+" | 250","21:00 | "+MILK_A+" | 250"].join("\n");
 const DEFAULT_TURNS = ["00:00 | telentang","02:00 | kanan","04:00 | kiri","06:00 | telentang","08:00 | kanan","10:00 | kiri",
   "12:00 | telentang","14:00 | kanan","16:00 | kiri","18:00 | telentang","20:00 | kanan","22:00 | kiri"].join("\n");
+/* 量血糖時段：每一列 = 一次量血糖（可設定飯前/飯後、要不要打胰島素、幾點打、劑量規則）
+   劑量規則：thr 留空 = 固定打 base；有 thr 時 血糖 ≥ thr 打 high，否則打 base */
+const DEFAULT_SLOTS = [
+  {id:"g0530", t:"05:30", kind:"pre",  milk:"06:00", ins:"short", insT:"05:30", base:0,  thr:110,  high:6},
+  {id:"g1130", t:"11:30", kind:"pre",  milk:"12:00", ins:"short", insT:"11:30", base:0,  thr:110,  high:6},
+  {id:"g1800", t:"18:00", kind:"pre",  milk:"18:00", ins:"short", insT:"18:00", base:0,  thr:110,  high:6},
+  {id:"g2300", t:"23:00", kind:"post", milk:"21:00", ins:"long",  insT:"23:00", base:35, thr:null, high:null}
+];
+/* 10 月從 Google Sheets 匯入的舊資料用的時段（舊規則：>110 打 6、>130 打 37 否則 35） */
+const LEGACY_SLOTS = [
+  {id:"s1", t:"05:30", kind:"", milk:"", ins:"short", insT:"05:30", base:0,  thr:111, high:6},
+  {id:"s2", t:"10:30", kind:"", milk:"", ins:"short", insT:"10:30", base:0,  thr:111, high:6},
+  {id:"s3", t:"14:00", kind:"", milk:"", ins:"short", insT:"18:00", base:0,  thr:111, high:6},
+  {id:"s4", t:"21:00", kind:"", milk:"", ins:"long",  insT:"21:00", base:35, thr:131, high:37}
+];
 const DEFAULT_CFG = {
-  bgTimes:["05:30","10:30","18:00","21:00"], insTypes:["o","o","o","w"], vAm:"08:00", vPm:"22:00",
-  stThr:110, stDose:6, ltThr:130, ltHi:37, ltLo:35,
-  bgLo:70, bgHi:180, sbp:130, dbp:85, hrLo:60, hrHi:100, temp:37.5, spo2:95, constDays:3,
+  cfgVer:2, slots:DEFAULT_SLOTS, vAm:"08:00", vPm:"22:00",
+  bgLo:70, bgHold:60, recheckMin:30, recheckOk:90, bgHi:240,
+  sbp:130, dbp:85, hrLo:60, hrHi:100, temp:37.5, spo2:95, constDays:3,
   tasks:DEFAULT_TASKS, milks:DEFAULT_MILKS, milkTypes:MILK_A+"\n"+MILK_B, turns:DEFAULT_TURNS
 };
+
 let cfg = JSON.parse(JSON.stringify(DEFAULT_CFG));
 
 /* ---------------- 小工具 ---------------- */
@@ -495,8 +521,14 @@ $("#loginBtn").onclick = ()=>login($("#pw").value);
 $("#pw").onkeydown = e=>{ if(e.key==="Enter") login($("#pw").value); };
 $("#logoutBtn").onclick = ()=>logout();
 async function loadConfig(){
-  try{ const j=await api("getConfig"); cfg=Object.assign(clone(DEFAULT_CFG), j.config||{}); }
-  catch(e){ notice("讀取設定失敗："+esc(e.message),true); }
+  try{
+    const j=await api("getConfig"); const saved=j.config||{};
+    cfg=Object.assign(clone(DEFAULT_CFG), saved);
+    if(saved.cfgVer!==2){ // 舊版設定：換成醫生新的血糖時間表與警示值，其他設定保留
+      for(const k of ["cfgVer","slots","bgLo","bgHold","recheckMin","recheckOk","bgHi"]) cfg[k]=clone(DEFAULT_CFG[k]);
+    }
+    if(!Array.isArray(cfg.slots)||!cfg.slots.length) cfg.slots=clone(DEFAULT_SLOTS);
+  }catch(e){ notice("讀取設定失敗："+esc(e.message),true); }
 }
 
 /* ---------------- 頁面切換 ---------------- */
@@ -522,7 +554,24 @@ function emptyDay(id){ return {date:id,bg:{},ins:{},vam:{},vpm:{},urine:0,stool:
 function normDay(d,id){ const o=Object.assign(emptyDay(id), d?clone(d):{});
   for(const k of ["bg","ins","vam","vpm","tasks","milk","turns"]) o[k]=o[k]||{};
   for(const k of ["stool","suction"]) o[k]=Array.isArray(o[k])?o[k]:[]; o.date=id; return o; }
-function suggest(slot,bg){ if(bg===null) return null; if(cfg.insTypes[slot]==="w") return bg>cfg.ltThr?cfg.ltHi:cfg.ltLo; return bg>cfg.stThr?cfg.stDose:0; }
+const SLIM=s=>({id:s.id,t:s.t,kind:s.kind||"",milk:s.milk||"",ins:s.ins||"none",insT:s.insT||s.t,base:num(s.base),thr:num(s.thr),high:num(s.high)});
+function isLegacy(d){ return d && !Array.isArray(d.slotDefs) && ["s1","s2","s3","s4"].some(k=>d.bg&&d.bg[k]!==undefined || d.ins&&d.ins[k]); }
+function slotsFor(d){ if(d&&Array.isArray(d.slotDefs)&&d.slotDefs.length) return d.slotDefs; if(isLegacy(d)) return LEGACY_SLOTS; return cfg.slots.map(SLIM); }
+const KIND_ZH={pre:"飯前",post:"飯後"}, KIND_ID={pre:"sebelum makan",post:"2 jam setelah makan"};
+function slotLabel(s){ return s.t+(KIND_ZH[s.kind]?" "+KIND_ZH[s.kind]:""); }
+function insLabel(s){ return s.insT+(s.ins==="long"?" 白":" 橘"); }
+function suggest(s,bg){
+  if(!s||s.ins==="none"||bg===null||bg===undefined) return null;
+  if(bg<cfg.bgHold) return 0;
+  if(s.thr===null||s.thr===undefined) return s.base??0;
+  return bg>=s.thr ? (s.high??0) : (s.base??0);
+}
+function mismatch(r,s){
+  const bg=num(r.bg[s.id]), i=r.ins[s.id]||{}, d=num(i.dose), sug=suggest(s,bg);
+  if(bg===null||sug===null||i.missed) return false;
+  return (d===null&&sug>0)||(d!==null&&d!==sug);
+}
+
 
 let curDay=iso(new Date()), day=emptyDay(curDay), dirty=false, saving=false, saveTimer=null, loadSeq=0;
 async function loadDay(id){
@@ -563,10 +612,26 @@ function renderPosNow(){
     <div style="margin-top:6px;font-size:14px">Berikutnya 下一次 <b>${c.next.t}</b>：${POS[c.next.pos].id} ${POS[c.next.pos].zh}</div></div></div>`;
 }
 
+function daySlots(){ return slotsFor(day); }
+function findSlot(id){ return daySlots().find(s=>s.id===id); }
+function buildItems(){
+  const items=[];
+  daySlots().forEach(s=>{
+    items.push({t:s.t,kind:"bg",slot:s});
+    if(s.ins!=="none" && s.insT && s.insT!==s.t) items.push({t:s.insT,kind:"ins",slot:s});
+  });
+  items.push({t:cfg.vAm,kind:"vital",which:"vam"}); items.push({t:cfg.vPm,kind:"vital",which:"vpm"});
+  parseMilks(cfg.milks).forEach(m=>items.push(Object.assign({kind:"milk"},m)));
+  parseTurns(cfg.turns).forEach(m=>items.push(Object.assign({kind:"turn"},m)));
+  parseTasks(cfg.tasks).forEach(x=>items.push(Object.assign({kind:"task"},x)));
+  return items;
+}
 function slotDone(items){
   return items.every(it=>{
     if(it.kind==="task") return !!day.tasks[it.id];
-    if(it.kind==="bg") return num(day.bg["s"+(it.slot+1)])!==null && day.ins["s"+(it.slot+1)]?.dose!==undefined;
+    if(it.kind==="bg"){ const s=it.slot; if(num(day.bg[s.id])===null) return false;
+      return s.ins==="none"||s.insT!==s.t||day.ins[s.id]?.dose!==undefined; }
+    if(it.kind==="ins") return day.ins[it.slot.id]?.dose!==undefined;
     if(it.kind==="vital"){ const v=day[it.which]; return num(v.hr)!==null && num(v.temp)!==null && (num(v.sysL)!==null||num(v.sysR)!==null); }
     if(it.kind==="milk") return !!day.milk[it.t]?.done;
     if(it.kind==="turn") return !!day.turns[it.t]?.done;
@@ -579,22 +644,37 @@ function renderTimeline(){
   $("#dayPick").value=curDay;
   $("#dayName").textContent=WD_ID[d.getDay()]+" · 星期"+WD_ZH[d.getDay()]+(curDay===iso(new Date())?" · Hari ini 今天":"");
   renderPosNow();
-  const items=[];
-  cfg.bgTimes.forEach((t,i)=>items.push({t,kind:"bg",slot:i}));
-  items.push({t:cfg.vAm,kind:"vital",which:"vam"}); items.push({t:cfg.vPm,kind:"vital",which:"vpm"});
-  parseMilks(cfg.milks).forEach(m=>items.push(Object.assign({kind:"milk"},m)));
-  parseTurns(cfg.turns).forEach(m=>items.push(Object.assign({kind:"turn"},m)));
-  parseTasks(cfg.tasks).forEach(x=>items.push(Object.assign({kind:"task"},x)));
-  const order={turn:0,bg:1,vital:2,milk:3,task:4};
-  const groups={}; items.forEach(it=>(groups[it.t]=groups[it.t]||[]).push(it));
+  const order={turn:0,bg:1,ins:2,vital:3,milk:4,task:5};
+  const groups={}; buildItems().forEach(it=>(groups[it.t]=groups[it.t]||[]).push(it));
   const times=Object.keys(groups).sort();
   const isToday=curDay===iso(new Date()), now=nowHM(); let nowT=null; if(isToday) for(const t of times) if(t<=now) nowT=t;
   const html=times.map(t=>{ const g=groups[t].sort((a,b)=>order[a.kind]-order[b.kind]);
     const cls=["slot"]; if(t===nowT) cls.push("now"); if(slotDone(g)) cls.push("done");
-    return `<div class="${cls.join(" ")}" id="t${t.replace(":","")}"><div class="time">${t}</div><div class="card">${g.map(itemHTML).join('<hr style="border:none;border-top:1px solid var(--line);margin:10px 0">')}</div></div>`; }).join("");
+    return `<div class="${cls.join(" ")}" id="t${t.replace(":","")}" data-t="${t}"><div class="time">${t}</div><div class="card">${g.map(itemHTML).join('<hr style="border:none;border-top:1px solid var(--line);margin:10px 0">')}</div></div>`; }).join("");
   const y=window.scrollY; $("#timeline").innerHTML=html; window.scrollTo(0,y);
   bindTimeline(); renderSummary(); updateLive();
   if(isToday && nowT && !renderTimeline.scrolled){ renderTimeline.scrolled=true; document.getElementById("t"+nowT.replace(":",""))?.scrollIntoView({block:"start"}); }
+}
+function ruleHTML(s){
+  const hold=`<br>⚠ Gula darah &lt; ${cfg.bgHold}: JANGAN suntik insulin. <span class="zh">血糖低於 ${cfg.bgHold} 不打任何胰島素</span>`;
+  const timing = s.kind==="pre"&&s.milk ? `<br>Suntik SEBELUM minum susu ${esc(s.milk)}. Kalau lupa, JANGAN suntik susulan. <span class="zh">喝 ${esc(s.milk)} 牛奶前打；忘了打，這次就不補打</span>` : "";
+  if(s.thr===null||s.thr===undefined)
+    return `Dosis tetap ${s.base} unit <span class="zh">固定打 ${s.base} 單位</span>${timing}${hold}`;
+  const lo = s.base ? `${s.base} unit` : "tidak disuntik";
+  return `Gula darah ≥ ${s.thr} → ${s.high} unit, di bawah ${s.thr} → ${lo} <span class="zh">血糖 ≥${s.thr} 打 ${s.high} 單位，低於 ${s.thr} ${s.base?"打 "+s.base+" 單位":"不打"}</span>${timing}${hold}`;
+}
+function insHTML(s){
+  const type=s.ins==="long"?"w":"o", ins=day.ins[s.id]||{};
+  const opts=[...new Set([s.base??0, s.high].filter(v=>v!==null&&v!==undefined))];
+  const chip=(v,lab,extra)=>`<button type="button" class="chip ${type}" data-ins="${s.id}" data-v="${v}" ${extra||""} aria-pressed="${extra? !!ins.missed : (!ins.missed&&ins.dose===v)}">${lab}</button>`;
+  return `<div class="ins ${type}"><b>💉 Insulin ${type==="w"?"Putih 白色長效":"Oranye 橘色短效"}</b>
+    <div class="rule">${ruleHTML(s)}</div>
+    <div class="chips">${opts.map(o=>chip(o,o===0?"Tidak 不打":o+" unit")).join("")}
+      ${s.kind==="pre"&&s.ins==="short"?chip(0,"Lupa · 忘了打（本次不打）",'data-missed="1"'):""}
+      <input type="number" inputmode="numeric" placeholder="lain 其他" data-insx="${s.id}" value="${ins.dose!==undefined&&!ins.missed&&!opts.includes(ins.dose)?ins.dose:""}" style="width:90px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--surface)"></div>
+    <div class="field" style="margin-top:8px"><label>Lokasi suntik <span class="zh">施打部位</span></label>
+      <select data-site="${s.id}">${["","Lengan kiri 左手臂","Lengan kanan 右手臂","Perut kiri 左肚子","Perut kanan 右肚子","Paha kiri 左大腿","Paha kanan 右大腿"].map(o=>`<option ${ins.site===o?"selected":""}>${o}</option>`).join("")}</select></div>
+    <div class="hint" data-hint="${s.id}"></div></div>`;
 }
 function itemHTML(it){
   if(it.kind==="task"){ const c=!!day.tasks[it.id]; const [idn,zh]=it.label.split(" · ");
@@ -615,21 +695,19 @@ function itemHTML(it){
       <div class="hint warn" data-milkhint="${it.t}"></div></div>
       <button type="button" class="donebtn" data-milkdone="${it.t}" data-type="${esc(it.type)}" data-ml="${it.ml}" aria-pressed="${!!r.done}">Sudah diberikan 已餵完${r.at?` (${r.at})`:""}</button>`; }
   if(it.kind==="bg"){
-    const s="s"+(it.slot+1), type=cfg.insTypes[it.slot], bg=day.bg[s]??"", ins=day.ins[s]||{};
-    const opts=type==="w"?[cfg.ltLo,cfg.ltHi]:[0,cfg.stDose];
-    const rule=type==="w"
-      ? `Aturan: gula darah &gt; ${cfg.ltThr} → ${cfg.ltHi} unit, selain itu ${cfg.ltLo} unit<br><span class="zh">長效(白)：血糖 &gt; ${cfg.ltThr} 打 ${cfg.ltHi}，否則打 ${cfg.ltLo}</span>`
-      : `Aturan: gula darah &gt; ${cfg.stThr} → ${cfg.stDose} unit, selain itu tidak disuntik<br><span class="zh">短效(橘)：血糖 &gt; ${cfg.stThr} 打 ${cfg.stDose}，否則不打</span>`;
-    return `<h3>🩸 Gula darah <span class="zh">測血糖</span></h3>
-      <div class="measure"><div class="field"><label>mg/dL</label><input class="big" type="number" inputmode="numeric" data-bg="${s}" value="${esc(bg)}"></div>
-      <div class="field"><label>Jari <span class="zh">手指</span></label><select data-bgf="${s}">${["","Kiri 左","Kanan 右"].map(o=>`<option ${day.bg[s+"f"]===o?"selected":""}>${o}</option>`).join("")}</select></div></div>
-      <div class="ins ${type}"><b>💉 Insulin ${type==="w"?"Putih 白色長效":"Oranye 橘色短效"}</b><div class="rule">${rule}</div>
-        <div class="chips">${opts.map(o=>`<button type="button" class="chip ${type}" data-ins="${s}" data-v="${o}" aria-pressed="${ins.dose===o}">${o===0?"Tidak 不打":o+" unit"}</button>`).join("")}
-          <input type="number" inputmode="numeric" placeholder="lain 其他" data-insx="${s}" value="${ins.dose!==undefined&&!opts.includes(ins.dose)?ins.dose:""}" style="width:90px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--surface)"></div>
-        <div class="field" style="margin-top:8px"><label>Lokasi suntik <span class="zh">施打部位</span></label>
-          <select data-site="${s}">${["","Lengan kiri 左手臂","Lengan kanan 右手臂","Perut kiri 左肚子","Perut kanan 右肚子","Paha kiri 左大腿","Paha kanan 右大腿"].map(o=>`<option ${ins.site===o?"selected":""}>${o}</option>`).join("")}</select></div>
-        <div class="hint" data-hint="${s}"></div></div>`;
+    const s=it.slot, bg=day.bg[s.id]??"", rc=day.bg[s.id+"r"]??"";
+    const kindTag = s.kind ? `<span class="tag ${s.kind}">${KIND_ID[s.kind]} · ${KIND_ZH[s.kind]}${s.milk?(s.kind==="pre"?`（${esc(s.milk)} 喝奶前）`:`（${esc(s.milk)} 喝奶後）`):""}</span>` : "";
+    return `<h3>🩸 Gula darah <span class="zh">測血糖</span>${kindTag}</h3>
+      <div class="measure"><div class="field"><label>mg/dL</label><input class="big" type="number" inputmode="numeric" data-bg="${s.id}" value="${esc(bg)}"></div>
+      <div class="field"><label>Jari <span class="zh">手指</span></label><select data-bgf="${s.id}">${["","Kiri 左","Kanan 右"].map(o=>`<option ${day.bg[s.id+"f"]===o?"selected":""}>${o}</option>`).join("")}</select></div></div>
+      <div class="recheck hidden" data-rcbox="${s.id}"><b>Ukur ulang ${cfg.recheckMin} menit setelah susu <span class="zh">灌牛奶 ${cfg.recheckMin} 分鐘後再量</span></b>
+        <div class="field" style="margin-top:6px;max-width:180px"><input class="big" type="number" inputmode="numeric" data-bgr="${s.id}" value="${esc(rc)}"></div>
+        <div class="hint" data-rchint="${s.id}"></div></div>
+      ${s.ins!=="none"&&s.insT===s.t?insHTML(s):""}
+      ${s.ins!=="none"&&s.insT!==s.t?`<div class="rule">💉 Insulin disuntik jam ${s.insT} <span class="zh">胰島素在 ${s.insT} 打</span></div>`:""}`;
   }
+  if(it.kind==="ins"){ const s=it.slot, bg=num(day.bg[s.id]);
+    return `<h3>💉 Suntik insulin <span class="zh">打胰島素（依 ${s.t} 血糖：${bg===null?"尚未量":bg}）</span></h3>${insHTML(s)}`; }
   if(it.kind==="vital"){ const v=day[it.which]||{}, w=it.which;
     const f=(k,lab,step)=>`<div class="field"><label>${lab}</label><input type="number" inputmode="decimal" ${step?`step="${step}"`:""} data-vv="${w}.${k}" value="${esc(v[k]??"")}"></div>`;
     return `<h3>❤️ Tanda vital ${w==="vam"?"pagi 早上":"malam 晚上（可選）"} <span class="zh">生命徵象</span></h3>
@@ -639,27 +717,27 @@ function itemHTML(it){
       <div class="rule">Tangan kiri &amp; kanan bergantian setiap hari, isi salah satu. <span class="zh">左右手每天輪流量，填其中一手即可</span></div>`; }
   return "";
 }
+function snapSlots(){ if(!Array.isArray(day.slotDefs) && !isLegacy(day)) day.slotDefs=cfg.slots.map(SLIM); }
 function bindTimeline(){
   const T="#timeline ";
   $$(T+"[data-task]").forEach(el=>el.onchange=()=>{ day.tasks[el.dataset.task]=el.checked; el.closest(".task").classList.toggle("checked",el.checked);
-    if(el.dataset.pijat){ day.rehab=$$(T+"[data-pijat]").filter(x=>x.checked).length; } touch(); });
-  $$(T+"[data-bg]").forEach(el=>el.oninput=()=>{ const s=el.dataset.bg, v=num(el.value); if(v===null) delete day.bg[s]; else day.bg[s]=v; touch(); });
+    if(el.dataset.pijat){ day.rehab=$$(T+"[data-pijat]").filter(x=>x.checked).length; } touch(); markDone(el); });
+  $$(T+"[data-bg]").forEach(el=>el.oninput=()=>{ snapSlots(); const s=el.dataset.bg, v=num(el.value); if(v===null) delete day.bg[s]; else day.bg[s]=v; touch(); });
+  $$(T+"[data-bgr]").forEach(el=>el.oninput=()=>{ const s=el.dataset.bgr+"r", v=num(el.value); if(v===null) delete day.bg[s]; else day.bg[s]=v; touch(); });
   $$(T+"[data-bgf]").forEach(el=>el.onchange=()=>{ day.bg[el.dataset.bgf+"f"]=el.value; touch(); });
-  $$(T+"[data-ins]").forEach(el=>el.onclick=()=>{ const s=el.dataset.ins;
-    day.ins[s]=Object.assign(day.ins[s]||{},{dose:Number(el.dataset.v),type:cfg.insTypes[Number(s.slice(1))-1],t:nowHM()});
-    $$(`${T}[data-ins="${s}"]`).forEach(b=>b.setAttribute("aria-pressed",b===el)); $(`${T}[data-insx="${s}"]`).value=""; touch(); });
-  $$(T+"[data-insx]").forEach(el=>el.oninput=()=>{ const s=el.dataset.insx, v=num(el.value); if(v===null) return;
-    day.ins[s]=Object.assign(day.ins[s]||{},{dose:v,type:cfg.insTypes[Number(s.slice(1))-1],t:nowHM()});
-    $$(`${T}[data-ins="${s}"]`).forEach(b=>b.setAttribute("aria-pressed","false")); touch(); });
-  $$(T+"[data-site]").forEach(el=>el.onchange=()=>{ const s=el.dataset.site; day.ins[s]=Object.assign(day.ins[s]||{},{site:el.value}); touch(); });
+  $$(T+"[data-ins]").forEach(el=>el.onclick=()=>{ snapSlots(); const id=el.dataset.ins, s=findSlot(id);
+    day.ins[id]=Object.assign(day.ins[id]||{},{dose:Number(el.dataset.v),type:s.ins==="long"?"w":"o",t:nowHM(),missed:!!el.dataset.missed});
+    $$(`${T}[data-ins="${id}"]`).forEach(b=>b.setAttribute("aria-pressed",b===el)); $$(`${T}[data-insx="${id}"]`).forEach(x=>x.value=""); touch(); markDone(el); });
+  $$(T+"[data-insx]").forEach(el=>el.oninput=()=>{ snapSlots(); const id=el.dataset.insx, v=num(el.value), s=findSlot(id); if(v===null) return;
+    day.ins[id]=Object.assign(day.ins[id]||{},{dose:v,type:s.ins==="long"?"w":"o",t:nowHM(),missed:false});
+    $$(`${T}[data-ins="${id}"]`).forEach(b=>b.setAttribute("aria-pressed","false")); touch(); markDone(el); });
+  $$(T+"[data-site]").forEach(el=>el.onchange=()=>{ const id=el.dataset.site; day.ins[id]=Object.assign(day.ins[id]||{},{site:el.value}); touch(); });
   $$(T+"[data-vv]").forEach(el=>el.oninput=()=>{ const [w,k]=el.dataset.vv.split("."); const v=num(el.value); if(v===null) delete day[w][k]; else day[w][k]=v; touch(); });
-  // 翻身
   $$(T+"[data-turnpos]").forEach(el=>el.onclick=()=>{ const t=el.dataset.turnpos; day.turns[t]=Object.assign(day.turns[t]||{},{pos:el.dataset.v});
     $$(`${T}[data-turnpos="${t}"]`).forEach(b=>b.setAttribute("aria-pressed",b===el)); touch(); });
   $$(T+"[data-turnskin]").forEach(el=>el.onchange=()=>{ const t=el.dataset.turnskin; day.turns[t]=Object.assign(day.turns[t]||{},{skin:el.checked}); touch(); });
   $$(T+"[data-turndone]").forEach(el=>el.onclick=()=>{ const t=el.dataset.turndone; const r=Object.assign({pos:el.dataset.sched},day.turns[t]||{});
     r.done=!r.done; r.at=r.done?nowHM():""; day.turns[t]=r; el.setAttribute("aria-pressed",r.done); el.textContent="Sudah diubah 已翻身"+(r.at?` (${r.at})`:""); touch(); markDone(el); });
-  // 牛奶
   $$(T+"[data-milktype]").forEach(el=>el.onclick=()=>{ const t=el.dataset.milktype; day.milk[t]=Object.assign(day.milk[t]||{},{type:el.dataset.v});
     $$(`${T}[data-milktype="${t}"]`).forEach(b=>b.setAttribute("aria-pressed",b===el)); touch(); });
   $$(T+"[data-milkml]").forEach(el=>el.oninput=()=>{ const t=el.dataset.milkml; day.milk[t]=Object.assign(day.milk[t]||{},{ml:num(el.value)}); touch(); });
@@ -667,23 +745,29 @@ function bindTimeline(){
     const r=Object.assign({type:el.dataset.type, ml:Number(el.dataset.ml)}, day.milk[t]||{});
     r.done=!r.done; r.at=r.done?nowHM():""; day.milk[t]=r; el.setAttribute("aria-pressed",r.done); el.textContent="Sudah diberikan 已餵完"+(r.at?` (${r.at})`:""); touch(); markDone(el); });
 }
-function markDone(el){ const slot=el.closest(".slot"); if(!slot) return; const t=slot.querySelector(".time").textContent;
-  const items=[]; cfg.bgTimes.forEach((x,i)=>{ if(x===t) items.push({kind:"bg",slot:i}); });
-  if(cfg.vAm===t) items.push({kind:"vital",which:"vam"}); if(cfg.vPm===t) items.push({kind:"vital",which:"vpm"});
-  parseMilks(cfg.milks).filter(m=>m.t===t).forEach(m=>items.push({kind:"milk",t}));
-  parseTurns(cfg.turns).filter(m=>m.t===t).forEach(m=>items.push({kind:"turn",t}));
-  parseTasks(cfg.tasks).filter(m=>m.t===t).forEach(m=>items.push(Object.assign({kind:"task"},m)));
-  slot.classList.toggle("done",slotDone(items)); }
+function markDone(el){ const slot=el.closest(".slot"); if(!slot) return; const t=slot.dataset.t;
+  slot.classList.toggle("done",slotDone(buildItems().filter(it=>it.t===t))); }
 function updateLive(){
   const T="#timeline ", alerts=[];
-  cfg.bgTimes.forEach((t,i)=>{ const s="s"+(i+1), bg=num(day.bg[s]), sug=suggest(i,bg), ins=day.ins[s], h=$(`${T}[data-hint="${s}"]`), inp=$(`${T}[data-bg="${s}"]`);
-    if(inp) inp.classList.toggle("bad",bg!==null&&(bg<cfg.bgLo||bg>cfg.bgHi));
-    if(bg!==null&&bg<cfg.bgLo) alerts.push(`⚠ ${t} Gula darah rendah ${bg}! Segera hubungi keluarga. 血糖偏低，立即通知家屬`);
-    if(bg!==null&&bg>cfg.bgHi) alerts.push(`⚠ ${t} Gula darah tinggi ${bg}. Hubungi keluarga. 血糖偏高，通知家屬`);
-    if(!h) return; if(sug===null){ h.textContent=""; h.className="hint"; return; }
-    const sugTxt=sug===0?"tidak disuntik":sug+" unit";
-    if(ins?.dose!==undefined&&ins.dose!==sug){ h.textContent=`⚠ Menurut aturan: ${sugTxt}, yang dicatat: ${ins.dose}. Mohon cek lagi. 與規則不同，請再確認`; h.className="hint warn"; }
-    else { h.textContent=`Menurut aturan 依規則：${sug===0?"tidak disuntik 不打":sug+" unit 單位"}`; h.className="hint"; } });
+  daySlots().forEach(s=>{
+    const bg=num(day.bg[s.id]), rc=num(day.bg[s.id+"r"]), sug=suggest(s,bg), ins=day.ins[s.id];
+    $$(`${T}[data-bg="${s.id}"]`).forEach(inp=>inp.classList.toggle("bad",bg!==null&&(bg<cfg.bgLo||bg>=cfg.bgHi)));
+    const box=$(`${T}[data-rcbox="${s.id}"]`); if(box) box.classList.toggle("hidden",!(bg!==null&&bg<cfg.bgHold));
+    if(bg!==null&&bg<cfg.bgHold){
+      alerts.push(`⚠ ${s.t} Gula darah ${bg} < ${cfg.bgHold}: JANGAN suntik insulin. Beri susu, ukur ulang ${cfg.recheckMin} menit lagi (harus > ${cfg.recheckOk}). Hubungi keluarga. ／ 血糖低於 ${cfg.bgHold}：不打胰島素，先灌牛奶，${cfg.recheckMin} 分鐘後再量（要高於 ${cfg.recheckOk}），並通知家屬`);
+      const rh=$(`${T}[data-rchint="${s.id}"]`);
+      if(rc!==null&&rc<=cfg.recheckOk) alerts.push(`⚠ ${s.t} Ukur ulang ${rc}, belum > ${cfg.recheckOk}. SEGERA hubungi keluarga! ／ 再量 ${rc} 仍未超過 ${cfg.recheckOk}，立即通知家屬`);
+      if(rh){ rh.textContent = rc===null ? "" : rc>cfg.recheckOk ? `✓ ${rc} > ${cfg.recheckOk} · Sudah naik 已回升` : `⚠ ${rc} ≤ ${cfg.recheckOk} · Hubungi keluarga 通知家屬`; rh.className="hint"+(rc!==null&&rc<=cfg.recheckOk?" warn":""); }
+    } else if(bg!==null&&bg<cfg.bgLo) alerts.push(`⚠ ${s.t} Gula darah rendah ${bg} (< ${cfg.bgLo}). Hubungi keluarga. ／ 血糖偏低，通知家屬`);
+    if(bg!==null&&bg>=cfg.bgHi) alerts.push(`⚠ ${s.t} Gula darah ${bg} ≥ ${cfg.bgHi}. Hubungi keluarga & dokter keluarga. ／ 血糖過高，通知家屬並聯繫家庭醫師`);
+    $$(`${T}[data-hint="${s.id}"]`).forEach(h=>{
+      if(sug===null){ h.textContent=bg===null?"Ukur gula darah dulu · 請先量血糖":""; h.className="hint"; return; }
+      const sugTxt=sug===0?"tidak disuntik 不打":sug+" unit 單位";
+      if(ins?.missed){ h.textContent="Lupa sebelum susu → tidak disuntik (sudah dicatat) · 已記錄：忘了打，本次不打"; h.className="hint"; return; }
+      if(ins?.dose!==undefined&&ins.dose!==sug){ h.textContent=`⚠ Menurut aturan: ${sugTxt}. Yang dicatat: ${ins.dose}. Mohon cek lagi. 與規則不同，請再確認`; h.className="hint warn"; }
+      else { h.textContent=`Menurut aturan 依規則：${sugTxt}`; h.className="hint"; }
+    });
+  });
   for(const w of ["vam","vpm"]){ const v=day[w], lab=w==="vam"?"pagi 早上":"malam 晚上";
     const mark=(k,bad)=>{ const el=$(`${T}[data-vv="${w}.${k}"]`); if(el) el.classList.toggle("bad",!!bad); };
     mark("sysL",num(v.sysL)>cfg.sbp); mark("sysR",num(v.sysR)>cfg.sbp); mark("diaL",num(v.diaL)>cfg.dbp); mark("diaR",num(v.diaR)>cfg.dbp);
@@ -769,22 +853,30 @@ function renderReport(){
   const f=$("#rFrom").value, t=$("#rTo").value;
   const ids=[]; for(let d=f; d<=t && ids.length<800; d=addDays(d,1)) ids.push(d);
   const rows=ids.map(id=>hist[id]||null), has=rows.filter(Boolean), labels=ids.map(short);
-  const bgS=[0,1,2,3].map(i=>rows.map(r=>r?num(r.bg["s"+(i+1)]):null));
-  const insS=[0,1,2,3].map(i=>rows.map(r=>r&&r.ins["s"+(i+1)]?num(r.ins["s"+(i+1)].dose):null));
+  // 依每天自己的時間表整理血糖與胰島素（10 月舊資料保留舊時間）
+  const bgCols=new Map(), insCols=new Map();
+  rows.forEach(r=>{ if(!r) return; slotsFor(r).forEach(s=>{
+    const L=slotLabel(s); if(!bgCols.has(L)) bgCols.set(L,{t:s.t,kind:s.kind});
+    if(s.ins!=="none"){ const IL=insLabel(s); if(!insCols.has(IL)) insCols.set(IL,{t:s.insT,ins:s.ins}); } }); });
+  const bgL=[...bgCols.keys()].sort((a,b)=>bgCols.get(a).t.localeCompare(bgCols.get(b).t)||a.localeCompare(b));
+  const insL=[...insCols.keys()].sort((a,b)=>insCols.get(a).t.localeCompare(insCols.get(b).t)||a.localeCompare(b));
+  const findBy=(r,L,fn)=>slotsFor(r).find(s=>fn(s)===L);
+  const bgS=bgL.map(L=>rows.map(r=>{ if(!r) return null; const s=findBy(r,L,slotLabel); return s?num(r.bg[s.id]):null; }));
+  const insS=insL.map(L=>rows.map(r=>{ if(!r) return null; const s=findBy(r,L,insLabel); if(!s) return null; const i=r.ins[s.id]; return i&&!i.missed?num(i.dose):null; }));
+  const allBg=bgS.flat().filter(v=>v!==null);
   const vv=(w,k)=>rows.map(r=>r?num(r[w][k]):null), pick=k=>rows.map(r=>r?(num(r.vam[k])??num(r.vpm[k])):null);
   const both=k=>rows.flatMap(r=>r?[num(r.vam[k]),num(r.vpm[k])]:[]);
-  const allBg=bgS.flat().filter(v=>v!==null);
   const sysAll=[...both("sysL"),...both("sysR")].filter(v=>v!==null), diaAll=[...both("diaL"),...both("diaR")].filter(v=>v!==null);
   const sL=stats(both("sysL")),sR=stats(both("sysR")),dL=stats(both("diaL")),dR=stats(both("diaR")),hrS=stats(both("hr")),tS=stats(both("temp")),spS=stats(both("spo2"));
-  const bgHi=allBg.filter(v=>v>cfg.bgHi).length, bgLo=allBg.filter(v=>v<cfg.bgLo).length;
-  const inRange=allBg.length?Math.round(allBg.filter(v=>v>=cfg.bgLo&&v<=cfg.bgHi).length/allBg.length*100):null;
+  const nHi=allBg.filter(v=>v>=cfg.bgHi).length, nLo=allBg.filter(v=>v<cfg.bgLo).length, nHold=allBg.filter(v=>v<cfg.bgHold).length;
+  const inRange=allBg.length?Math.round(allBg.filter(v=>v>=cfg.bgLo&&v<cfg.bgHi).length/allBg.length*100):null;
   const stoolDays=has.filter(r=>r.stool.length>0).length, noStool=has.filter(r=>r.stool.length===0).length;
   let streak=0,maxStreak=0; rows.forEach(r=>{ if(r&&r.stool.length===0){streak++;maxStreak=Math.max(maxStreak,streak);} else if(r) streak=0; });
   const avg=k=>has.length?Math.round(has.reduce((s,r)=>s+(Number(k(r))||0),0)/has.length*10)/10:"–";
-  const stDoses=has.reduce((s,r)=>s+[1,2,3].filter(i=>num(r.ins["s"+i]?.dose)>0).length,0);
-  const ltHiDays=has.filter(r=>num(r.ins.s4?.dose)===cfg.ltHi).length, ltLoDays=has.filter(r=>num(r.ins.s4?.dose)===cfg.ltLo).length;
-  const mismatch=(r,i)=>{ const bg=num(r.bg["s"+(i+1)]), d=num(r.ins["s"+(i+1)]?.dose), s=suggest(i,bg); return bg!==null&&s!==null&&((d===null&&s>0)||(d!==null&&d!==s)); };
-  const mism=has.filter(r=>[0,1,2,3].some(i=>mismatch(r,i))).length;
+  let shortN=0, longDoses=[], missedN=0;
+  has.forEach(r=>slotsFor(r).forEach(s=>{ const i=r.ins[s.id]; if(!i) return; if(i.missed){missedN++;return;}
+    const d=num(i.dose); if(s.ins==="short"&&d>0) shortN++; if(s.ins==="long"&&d!==null) longDoses.push(d); }));
+  const mism=has.filter(r=>slotsFor(r).some(s=>mismatch(r,s))).length;
   const milkDone=r=>Object.values(r.milk).filter(m=>m.done);
   const mTypes=milkTypes(); const milkByType=mTypes.map(m=>rows.map(r=>r?milkDone(r).filter(x=>x.type===m).reduce((s,x)=>s+(Number(x.ml)||0),0)||null:null));
   const milkDays=has.filter(r=>milkDone(r).length); const milkAvg=milkDays.length?Math.round(milkDays.reduce((s,r)=>s+milkDone(r).reduce((a,x)=>a+(Number(x.ml)||0),0),0)/milkDays.length):null;
@@ -797,12 +889,13 @@ function renderReport(){
   const since=id=>id?Math.round((parse(iso(new Date()))-parse(id))/864e5):null;
   const lt=lastEv("trach"), ln=lastEv("ngt");
   const K=(zh,idn,v,s,warn)=>`<div class="kpi ${warn?"warn":""}"><div class="k">${zh} <span class="zh">${idn}</span></div><div class="v">${v}</div><div class="s">${s||""}</div></div>`;
-  const st=i=>stats(bgS[i]);
+  const ldStat=stats(longDoses);
   $("#kpis").innerHTML=[
     K("有紀錄天數","Hari tercatat",has.length,`共 ${ids.length} 天`),
-    ...[0,1,2,3].map(i=>{ const s=st(i); return K(`血糖 ${cfg.bgTimes[i]}`,"rata-rata",s?s.avg:"–",s?`最低 ${s.min}／最高 ${s.max}`:""); }),
-    K("血糖達標率","dalam target",inRange===null?"–":inRange+"%",`${cfg.bgLo}–${cfg.bgHi} mg/dL`),
-    K("血糖超標次數","di luar target",bgHi+bgLo,`偏高 ${bgHi}／偏低 ${bgLo}`,bgHi+bgLo>0),
+    ...bgL.map((L,k)=>{ const s=stats(bgS[k]); return K(`血糖 ${L}`,"rata-rata",s?s.avg:"–",s?`最低 ${s.min}／最高 ${s.max}（${s.n} 次）`:""); }),
+    K("血糖在安全範圍","dalam batas aman",inRange===null?"–":inRange+"%",`${cfg.bgLo}～${cfg.bgHi-1} mg/dL`),
+    K(`血糖 ≥${cfg.bgHi}`,"terlalu tinggi",nHi,"次，需通知家屬及醫師",nHi>0),
+    K(`血糖 <${cfg.bgLo}`,"terlalu rendah",nLo,`次（其中 <${cfg.bgHold}：${nHold} 次）`,nLo>0),
     K("左手血壓平均","TD kiri",sL?`${sL.avg}/${dL?dL.avg:"–"}`:"–",sL?`收縮壓最高 ${sL.max}`:""),
     K("右手血壓平均","TD kanan",sR?`${sR.avg}/${dR?dR.avg:"–"}`:"–",sR?`收縮壓最高 ${sR.max}`:""),
     K("血壓超標次數","TD tinggi",sysAll.filter(v=>v>cfg.sbp).length+diaAll.filter(v=>v>cfg.dbp).length,`收縮>${cfg.sbp} 或 舒張>${cfg.dbp}`,sysAll.some(v=>v>cfg.sbp)||diaAll.some(v=>v>cfg.dbp)),
@@ -818,29 +911,32 @@ function renderReport(){
     K("浣腸次數","Enema",has.filter(r=>r.enema).length,"次"),
     K("復健／按摩","Rehab/pijat",avg(r=>r.rehab)+"／"+avg(r=>r.acu),"次／天"),
     K("平均抽痰","Sedot dahak",avg(r=>r.suction.length),"次／天"),
-    K("短效(橘)施打","Insulin oranye",stDoses,"次"),
-    K("長效(白)劑量天數","Insulin putih",`${ltHiDays}／${ltLoDays}`,`${cfg.ltHi}U／${cfg.ltLo}U`),
+    K("短效(橘)施打","Insulin oranye",shortN,"次"),
+    K("長效(白)","Insulin putih",ldStat?`${ldStat.n} 次`:"–",ldStat?(ldStat.min===ldStat.max?`每次 ${ldStat.min} 單位`:`${ldStat.min}～${ldStat.max} 單位`):""),
+    K("忘了打（未補打）","Lupa suntik",missedN,"次",missedN>0),
     K("劑量與規則不符","Dosis beda aturan",mism,"天，請核對",mism>0),
     K("上次換氣切管","Ganti trakeostomi",lt?short(lt):"–",lt?`${since(lt)} 天前`:"尚無紀錄"),
     K("上次換鼻胃管","Ganti NGT",ln?short(ln):"–",ln?`${since(ln)} 天前`:"尚無紀錄"),
   ].join("");
 
-  const C=["#2B6CB0","#C2313B","#D69E2E","#2F855A"];
+  const PAL=["#2B6CB0","#C2313B","#D69E2E","#2F855A","#805AD5","#DD6B20","#319795","#B83280"];
   const flat=(v,c,label)=>({label,data:labels.map(()=>v),borderColor:c,borderDash:[5,5],borderWidth:1,pointRadius:0,fill:false});
-  const insPts=[0,1,2].map(i=>rows.map((r,j)=>insS[i][j]>0?bgS[i][j]:null));
+  // 短效有打的點：畫在對應的血糖上
+  const shotPts=bgL.map(L=>rows.map(r=>{ if(!r) return null; const s=findBy(r,L,slotLabel); if(!s||s.ins!=="short") return null; const i=r.ins[s.id]; return i&&!i.missed&&num(i.dose)>0?num(r.bg[s.id]):null; }));
   mkChart("cBG",{type:"line",data:{labels,datasets:[
-    ...[0,1,2,3].map(i=>({label:cfg.bgTimes[i]+" 量測",data:bgS[i],borderColor:C[i],backgroundColor:C[i],tension:.25,pointRadius:3})),
-    ...[0,1,2].map(i=>({label:cfg.bgTimes[i]+" 打橘色",data:insPts[i],showLine:false,pointStyle:"triangle",pointRadius:8,borderColor:"#E2701F",backgroundColor:"#E2701F"})),
-    flat(cfg.bgHi,"#C2313B","上限 "+cfg.bgHi), flat(cfg.bgLo,"#D69E2E","下限 "+cfg.bgLo)]},
-    options:{scales:{x:{},y:{suggestedMin:60,suggestedMax:200,title:{display:true,text:"mg/dL"}}}}});
-  mkChart("cIns",{type:"bar",data:{labels,datasets:[
-    ...[0,1,2].map((i,k)=>({label:cfg.bgTimes[i]+" 橘 Oranye",data:insS[i],backgroundColor:["#F6AD55","#E2701F","#9C4221"][k],stack:"o"})),
-    {label:cfg.bgTimes[3]+" 白 Putih",data:insS[3],backgroundColor:"#8A99AF",stack:"w"}]},
+    ...bgL.map((L,k)=>({label:L,data:bgS[k],borderColor:PAL[k%PAL.length],backgroundColor:PAL[k%PAL.length],tension:.25,pointRadius:3})),
+    {label:"▲ 有打短效",data:labels.map((_,j)=>{ const v=shotPts.map(a=>a[j]).filter(x=>x!==null); return v.length?Math.max(...v):null; }),showLine:false,pointStyle:"triangle",pointRadius:8,borderColor:"#E2701F",backgroundColor:"#E2701F"},
+    flat(cfg.bgHi,"#C2313B","通知醫師 "+cfg.bgHi), flat(cfg.bgLo,"#D69E2E","通知家人 "+cfg.bgLo), flat(cfg.bgHold,"#9C4221","不打針 "+cfg.bgHold)]},
+    options:{scales:{x:{},y:{suggestedMin:50,suggestedMax:250,title:{display:true,text:"mg/dL"}}}}});
+  const ORA=["#F6AD55","#E2701F","#9C4221","#ED8936","#C05621"], WHI=["#8A99AF","#A0AEC0","#718096"];
+  let oi=0, wi=0;
+  mkChart("cIns",{type:"bar",data:{labels,datasets:insL.map((L,k)=>{ const lg=insCols.get(L).ins==="long";
+    return {label:L+(lg?" Putih":" Oranye"),data:insS[k],backgroundColor:lg?WHI[wi++%WHI.length]:ORA[oi++%ORA.length],stack:lg?"w":"o"}; })},
     options:{scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:"Unit"}}}}});
-  mkChart("cBGavg",{type:"bar",data:{labels:cfg.bgTimes,datasets:[
-    {label:"平均 Rata2",data:[0,1,2,3].map(i=>st(i)?.avg??null),backgroundColor:C},
-    {label:"最高 Maks",data:[0,1,2,3].map(i=>st(i)?.max??null),backgroundColor:"rgba(194,49,59,.35)"},
-    {label:"最低 Min",data:[0,1,2,3].map(i=>st(i)?.min??null),backgroundColor:"rgba(214,158,46,.35)"}]},options:{scales:{x:{},y:{beginAtZero:true}}}});
+  mkChart("cBGavg",{type:"bar",data:{labels:bgL,datasets:[
+    {label:"平均 Rata2",data:bgL.map((L,k)=>stats(bgS[k])?.avg??null),backgroundColor:bgL.map((_,k)=>PAL[k%PAL.length])},
+    {label:"最高 Maks",data:bgL.map((L,k)=>stats(bgS[k])?.max??null),backgroundColor:"rgba(194,49,59,.35)"},
+    {label:"最低 Min",data:bgL.map((L,k)=>stats(bgS[k])?.min??null),backgroundColor:"rgba(214,158,46,.35)"}]},options:{scales:{x:{},y:{beginAtZero:true}}}});
   mkChart("cBP",{type:"line",data:{labels,datasets:[
     {label:"左手收縮壓 Sis kiri",data:pick("sysL"),borderColor:"#7B3FB6",backgroundColor:"#7B3FB6",pointRadius:4},
     {label:"右手收縮壓 Sis kanan",data:pick("sysR"),borderColor:"#C2313B",backgroundColor:"#C2313B",pointRadius:4,pointStyle:"rect"},
@@ -876,56 +972,103 @@ function renderReport(){
   rows.forEach((r,j)=>{ if(!r) return; const d=short(ids[j]);
     if(r.trach) ev.push(`${d}　更換氣切管 Ganti trakeostomi`); if(r.ngt) ev.push(`${d}　更換鼻胃管 Ganti NGT`);
     if(r.enema) ev.push(`${d}　使用浣腸 Enema`); if(r.bath) ev.push(`${d}　沐浴洗澡 Mandi`);
+    slotsFor(r).forEach(s=>{ const bg=num(r.bg[s.id]), rc=num(r.bg[s.id+"r"]), i=r.ins[s.id];
+      if(bg!==null&&bg<cfg.bgHold) ev.push(`${d} ${slotLabel(s)}　⚠ 血糖 ${bg}（<${cfg.bgHold} 不打針、灌牛奶）${rc!==null?`，${cfg.recheckMin} 分後再量 ${rc}${rc>cfg.recheckOk?" ✓ 已回升":" ⚠ 未回升"}`:"，未紀錄再量"}`);
+      else if(bg!==null&&bg<cfg.bgLo) ev.push(`${d} ${slotLabel(s)}　⚠ 血糖偏低 ${bg}`);
+      if(bg!==null&&bg>=cfg.bgHi) ev.push(`${d} ${slotLabel(s)}　⚠ 血糖過高 ${bg}（≥${cfg.bgHi}）`);
+      if(i&&i.missed) ev.push(`${d} ${insLabel(s)}　忘了在喝奶前打，本次未打`);
+      if(mismatch(r,s)) ev.push(`${d} ${insLabel(s)}　胰島素核對：血糖 ${bg}，規則 ${suggest(s,bg)}U，實打 ${i?.dose??"未填"}`); });
     Object.entries(r.turns).filter(([,x])=>x.skin).forEach(([t])=>ev.push(`${d} ${t}　⚠ 皮膚發紅 Kulit merah`));
     r.stool.filter(x=>["黑色","帶血","水樣"].includes(x.type)).forEach(x=>ev.push(`${d} ${x.t||""}　⚠ 大便${x.type}`));
     r.suction.filter(x=>x.color==="綠"||x.color==="血絲").forEach(x=>ev.push(`${d} ${x.t||""}　⚠ 痰${x.color}`));
     ["vam","vpm"].forEach(w=>{ if(num(r[w].temp)>=cfg.temp) ev.push(`${d}　⚠ 體溫 ${r[w].temp}°C`); if(num(r[w].spo2)!==null&&r[w].spo2<cfg.spo2) ev.push(`${d}　⚠ 血氧 ${r[w].spo2}%`); });
-    [0,1,2,3].forEach(i=>{ if(mismatch(r,i)) ev.push(`${d} ${cfg.bgTimes[i]}　胰島素核對：血糖 ${r.bg["s"+(i+1)]}，規則 ${suggest(i,num(r.bg["s"+(i+1)]))}U，實打 ${r.ins["s"+(i+1)]?.dose??"未填"}`); });
     if(r.note) ev.push(`${d}　備註 Catatan：${r.note}`); });
   $("#events").innerHTML=ev.length?ev.map(e=>`<div>${esc(e)}</div>`).join(""):`<div class="zh">沒有特別事件 Tidak ada kejadian khusus</div>`;
 
-  const H=["日期 Tgl","星期",...cfg.bgTimes.map(t=>"血糖 "+t),...cfg.bgTimes.map((t,i)=>"胰島素 "+t+(cfg.insTypes[i]==="w"?" 白":" 橘")),
-    "左手血壓 kiri","右手血壓 kanan","心跳","體溫","血氧","牛奶 ml","翻身","小便","大便","大便性狀","浣腸","抽痰","痰色","復健","按摩","擦澡","洗澡","換氣切管","換鼻胃管","備註 Catatan"];
+  const TAIL=["左手血壓 kiri","右手血壓 kanan","心跳","體溫","血氧","牛奶 ml","翻身","小便","大便","大便性狀","浣腸","抽痰","痰色","復健","按摩","擦澡","洗澡","換氣切管","換鼻胃管","備註 Catatan"];
+  const H=["日期 Tgl","星期",...bgL.map(L=>"血糖 "+L),...insL.map(L=>"胰島素 "+L),...TAIL];
   const bp=(r,s,d)=>{ const a=num(r.vam[s])??num(r.vpm[s]), b=num(r.vam[d])??num(r.vpm[d]); return a===null&&b===null?["",""]:[`${a??"–"}/${b??"–"}`,(a>cfg.sbp||b>cfg.dbp)?"hi":""]; };
   const cell=(v,c)=>`<td class="${c||""}">${esc(v??"")}</td>`;
   const csv=[H];
   const body=rows.map((r,j)=>{ const id=ids[j], dw=WD_ZH[parse(id).getDay()];
     if(!r) return `<tr><td>${short(id)}</td><td>${dw}</td><td colspan="${H.length-2}" class="zh" style="text-align:left">無紀錄 Tidak ada data</td></tr>`;
-    const bgc=v=>v===null?"":(v>cfg.bgHi?"hi":v<cfg.bgLo?"lo":"");
+    const bgc=v=>v===null?"":(v>=cfg.bgHi?"hi":v<cfg.bgLo?"lo":"");
+    const bgCells=bgL.map(L=>{ const s=findBy(r,L,slotLabel); if(!s) return ["",""]; const v=num(r.bg[s.id]), rc=num(r.bg[s.id+"r"]);
+      return [v===null?"":(rc!==null?`${v}→${rc}`:String(v)), bgc(v)]; });
+    const insCells=insL.map(L=>{ const s=findBy(r,L,insLabel); if(!s) return ["",""]; const i=r.ins[s.id];
+      return [i?(i.missed?"忘打":(i.dose??"")):"", mismatch(r,s)?"lo":(i&&i.missed?"lo":"")]; });
     const L=bp(r,"sysL","diaL"), R=bp(r,"sysR","diaR"), hr=num(r.vam.hr)??num(r.vpm.hr), tp=num(r.vam.temp)??num(r.vpm.temp), sp=num(r.vam.spo2)??num(r.vpm.spo2);
     const ml=milkDone(r).reduce((s,x)=>s+(Number(x.ml)||0),0), tn=Object.values(r.turns).filter(x=>x.done).length;
-    const vals=[id,dw,...[0,1,2,3].map(i=>r.bg["s"+(i+1)]??""),...[0,1,2,3].map(i=>r.ins["s"+(i+1)]?.dose??""),L[0],R[0],hr??"",tp??"",sp??"",ml||"",tn||"",
-      r.urine,r.stool.length,r.stool.map(x=>x.type).filter(Boolean).join("/"),r.enema?"✓":"",r.suction.length,r.suction.map(x=>x.color).filter(Boolean).join("/"),
-      r.rehab,r.acu,r.wipe,r.bath?"✓":"",r.trach?"✓":"",r.ngt?"✓":"",r.note||""];
-    csv.push(vals);
-    return `<tr>${cell(short(id))}${cell(dw)}${[0,1,2,3].map(i=>{const v=num(r.bg["s"+(i+1)]);return cell(v,bgc(v));}).join("")}
-      ${[0,1,2,3].map(i=>cell(r.ins["s"+(i+1)]?.dose??"",mismatch(r,i)?"lo":"")).join("")}
-      ${cell(L[0],L[1])}${cell(R[0],R[1])}${cell(hr,hr!==null&&(hr<cfg.hrLo||hr>cfg.hrHi)?"hi":"")}${cell(tp,tp>=cfg.temp?"hi":"")}${cell(sp,sp!==null&&sp<cfg.spo2?"hi":"")}
-      ${cell(ml||"")}${cell(tn||"")}${cell(r.urine)}${cell(r.stool.length,r.stool.length===0?"lo":"")}${cell(vals[19])}${cell(vals[20])}${cell(r.suction.length)}${cell(vals[22])}
-      ${cell(r.rehab)}${cell(r.acu)}${cell(r.wipe)}${cell(vals[26])}${cell(vals[27])}${cell(vals[28])}<td style="text-align:left">${esc(r.note||"")}</td></tr>`; }).join("");
+    const tail=[L[0],R[0],hr??"",tp??"",sp??"",ml||"",tn||"",r.urine,r.stool.length,r.stool.map(x=>x.type).filter(Boolean).join("/"),r.enema?"✓":"",
+      r.suction.length,r.suction.map(x=>x.color).filter(Boolean).join("/"),r.rehab,r.acu,r.wipe,r.bath?"✓":"",r.trach?"✓":"",r.ngt?"✓":"",r.note||""];
+    csv.push([id,dw,...bgCells.map(c=>c[0]),...insCells.map(c=>c[0]),...tail]);
+    const tc=[L[1],R[1],hr!==null&&(hr<cfg.hrLo||hr>cfg.hrHi)?"hi":"",tp>=cfg.temp?"hi":"",sp!==null&&sp<cfg.spo2?"hi":"","","","",r.stool.length===0?"lo":""];
+    return `<tr>${cell(short(id))}${cell(dw)}${bgCells.map(c=>cell(c[0],c[1])).join("")}${insCells.map(c=>cell(c[0],c[1])).join("")}${tail.slice(0,-1).map((v,k)=>cell(v,tc[k])).join("")}<td style="text-align:left">${esc(r.note||"")}</td></tr>`; }).join("");
   $("#tbl").innerHTML=`<thead><tr>${H.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${body}</tbody>`;
   lastCSV="\ufeff"+csv.map(r=>r.map(v=>{ const s=String(v??""); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }).join(",")).join("\n");
 }
+
 $("#exportBtn").onclick=()=>{ if(!lastCSV) return; const a=document.createElement("a");
   a.href=URL.createObjectURL(new Blob([lastCSV],{type:"text/csv"})); a.download=`爸爸健康紀錄_${$("#rFrom").value}_${$("#rTo").value}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); };
 
 /* ================= 設定 ================= */
+let editSlots=[];
+function slotRowHTML(s,k){
+  const opt=(v,lab,cur)=>`<option value="${v}" ${cur===v?"selected":""}>${lab}</option>`;
+  return `<div class="slotrow" data-k="${k}">
+    <div class="hd"><span>第 ${k+1} 次量血糖</span><button class="del" data-del="${k}">刪除這一列</button></div>
+    <div class="set-grid">
+      <div class="field"><label>量血糖時間</label><input type="time" data-f="t" value="${esc(s.t)}"></div>
+      <div class="field"><label>飯前／飯後</label><select data-f="kind">${opt("pre","飯前（喝奶前）",s.kind)}${opt("post","飯後兩小時",s.kind)}${opt("","其他",s.kind)}</select></div>
+      <div class="field"><label>對應哪一罐牛奶的時間</label><input type="time" data-f="milk" value="${esc(s.milk||"")}"></div>
+      <div class="field"><label>胰島素</label><select data-f="ins">${opt("none","這次不打",s.ins)}${opt("short","短效（橘）",s.ins)}${opt("long","長效（白）",s.ins)}</select></div>
+      <div class="field"><label>胰島素幾點打</label><input type="time" data-f="insT" value="${esc(s.insT||s.t)}"></div>
+      <div class="field"><label>基本劑量（低於門檻時）</label><input type="number" data-f="base" value="${s.base??""}"></div>
+      <div class="field"><label>門檻：血糖 ≥（留空＝固定劑量）</label><input type="number" data-f="thr" value="${s.thr??""}"></div>
+      <div class="field"><label>達門檻時打幾單位</label><input type="number" data-f="high" value="${s.high??""}"></div>
+    </div>
+    <div class="rl" data-rl="${k}"></div></div>`;
+}
+function ruleText(s){
+  if(s.ins==="none") return "這個時段只量血糖，不打胰島素。";
+  const nm=s.ins==="long"?"長效（白）":"短效（橘）";
+  const when=s.insT&&s.insT!==s.t?`在 ${s.insT} 打（依 ${s.t} 的血糖）`:`量完血糖就打`;
+  const r=(s.thr===null||s.thr===undefined)?`固定打 ${s.base??0} 單位`:`血糖 ≥${s.thr} 打 ${s.high??0} 單位，低於 ${s.thr} ${s.base?"打 "+s.base+" 單位":"不打"}`;
+  return `看護會看到：${nm}，${when}，${r}；血糖低於 ${cfg.bgHold} 一律不打。`;
+}
+function readSlotRows(){
+  return $$("#slotRows .slotrow").map((row,k)=>{ const g=f=>row.querySelector(`[data-f="${f}"]`).value;
+    const old=editSlots[k]||{};
+    return {id:old.id||("g"+Date.now().toString(36)+k), t:g("t"), kind:g("kind"), milk:g("milk"), ins:g("ins"), insT:g("insT")||g("t"),
+      base:num(g("base")), thr:num(g("thr")), high:num(g("high"))}; });
+}
+function renderSlotRows(){
+  $("#slotRows").innerHTML=editSlots.map(slotRowHTML).join("");
+  const refresh=()=>{ editSlots=readSlotRows(); editSlots.forEach((s,k)=>{ const el=$(`[data-rl="${k}"]`); if(el) el.textContent=ruleText(s); }); };
+  $$("#slotRows input, #slotRows select").forEach(el=>el.oninput=el.onchange=refresh);
+  $$("#slotRows [data-del]").forEach(b=>b.onclick=()=>{ editSlots=readSlotRows(); editSlots.splice(Number(b.dataset.del),1); renderSlotRows(); });
+  refresh();
+}
+$("#addSlot").onclick=()=>{ editSlots=readSlotRows(); editSlots.push({id:"g"+Date.now().toString(36),t:"",kind:"pre",milk:"",ins:"none",insT:"",base:0,thr:null,high:null}); renderSlotRows(); };
 function renderSettings(){
-  $("#setTimes").innerHTML=cfg.bgTimes.map((t,i)=>`<div class="field"><label>第${i+1}次血糖＋胰島素（${cfg.insTypes[i]==="w"?"白色長效":"橘色短效"}）</label><input type="time" data-bt="${i}" value="${t}"></div>`).join("")
-    +`<div class="field"><label>早上生命徵象時間</label><input type="time" data-vt="vAm" value="${cfg.vAm}"></div><div class="field"><label>晚上生命徵象時間</label><input type="time" data-vt="vPm" value="${cfg.vPm}"></div>`;
+  editSlots=clone(cfg.slots); renderSlotRows();
   $$("[data-c]").forEach(el=>el.value=cfg[el.dataset.c]);
   $("#setTasks").value=cfg.tasks; $("#setMilks").value=cfg.milks; $("#setMilkTypes").value=cfg.milkTypes; $("#setTurns").value=cfg.turns;
 }
 $("#saveCfg").onclick=async()=>{
   const n=clone(cfg);
-  $$("[data-bt]").forEach(el=>n.bgTimes[Number(el.dataset.bt)]=el.value);
-  $$("[data-vt]").forEach(el=>n[el.dataset.vt]=el.value);
+  const slots=readSlotRows().sort((a,b)=>a.t.localeCompare(b.t));
+  const bad=slots.filter(s=>!/^\d{2}:\d{2}$/.test(s.t)||!/^\d{2}:\d{2}$/.test(s.insT)||(s.ins!=="none"&&(s.base===null&&s.thr===null)));
+  if(!slots.length){ $("#cfgState").textContent="⚠ 至少要有一次量血糖"; return; }
+  if(bad.length){ $("#cfgState").textContent="⚠ 請檢查：每一列都要填量血糖時間、胰島素時間；要打胰島素的列要填劑量"; return; }
+  if(slots.some(s=>s.thr!==null&&s.high===null)){ $("#cfgState").textContent="⚠ 有填門檻的列，也要填「達門檻時打幾單位」"; return; }
+  n.slots=slots; n.cfgVer=2;
   $$("[data-c]").forEach(el=>{ const v=num(el.value); if(v!==null) n[el.dataset.c]=v; });
   n.tasks=$("#setTasks").value; n.milks=$("#setMilks").value; n.milkTypes=$("#setMilkTypes").value; n.turns=$("#setTurns").value;
-  const types=lines(n.milkTypes), bad=parseMilks(n.milks).filter(m=>!types.includes(m.type));
-  if(bad.length){ $("#cfgState").textContent="⚠ 牛奶時間表的種類要和「牛奶種類」完全一樣："+bad.map(b=>b.t+" "+b.type).join("、"); return; }
+  const types=lines(n.milkTypes), badm=parseMilks(n.milks).filter(m=>!types.includes(m.type));
+  if(badm.length){ $("#cfgState").textContent="⚠ 牛奶時間表的種類要和「牛奶種類」完全一樣："+badm.map(b=>b.t+" "+b.type).join("、"); return; }
   $("#cfgState").textContent="儲存中…";
-  try{ await api("saveConfig",{config:n}); cfg=n; $("#cfgState").textContent="已儲存 "+nowHM(); }catch(e){ $("#cfgState").textContent="儲存失敗："+e.message; }
+  try{ await api("saveConfig",{config:n}); cfg=n; editSlots=clone(n.slots); renderSlotRows(); $("#cfgState").textContent="已儲存 "+nowHM()+"，看護重新整理後生效"; }catch(e){ $("#cfgState").textContent="儲存失敗："+e.message; }
 };
 $("#savePw").onclick=async()=>{
   const u=$("#newUserPw").value, a=$("#newAdminPw").value;
