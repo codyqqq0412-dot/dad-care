@@ -196,7 +196,11 @@ header.top{border-bottom:5px solid var(--line);transition:border-color .5s}
 .who:empty{display:none}
 .who.none{background:transparent;color:var(--muted);border:1px dashed var(--muted)}
 .who.none::before{display:none}
+.task{flex-wrap:wrap}
+.task > span:not(.who){flex:1 1 180px}
 .task .who{margin-left:auto}
+.owner{display:flex;justify-content:flex-end;margin:-2px 0 8px}
+.owner .who{font-size:13px;padding:3px 11px 3px 8px}
 .task.checked span.who{text-decoration:none;color:#fff}
 #dutyPill .who{font-size:14px;padding:4px 12px 4px 9px}
 h3 .who{margin-left:6px}
@@ -720,7 +724,7 @@ function renderTimeline(){
     const col=p?p.color:"var(--line)";
     const sep = dk!==lastDuty ? `<div class="shiftsep" style="--pc:${col}">${du.label} ${du.range} · ${p?esc(p.name):"未安排 Belum diatur"}</div>` : "";
     lastDuty=dk;
-    return `${sep}<div class="${cls.join(" ")}" id="t${t.replace(":","")}" style="--pc:${col}"><div class="time">${t}</div><div class="card">${g.map(itemHTML).join('<hr style="border:none;border-top:1px solid var(--line);margin:10px 0">')}</div></div>`; }).join("");
+    return `${sep}<div class="${cls.join(" ")}" id="t${t.replace(":","")}" style="--pc:${col}"><div class="time">${t}</div><div class="card"><div class="owner">${whoTag(du.who,"👤 負責 Petugas")}</div>${g.map(itemHTML).join('<hr style="border:none;border-top:1px solid var(--line);margin:10px 0">')}</div></div>`; }).join("");
   const y=window.scrollY; $("#timeline").innerHTML=html; window.scrollTo(0,y);
   bindTimeline(); renderSummary(); updateLive();
   if(isToday && nowT && !renderTimeline.scrolled){ renderTimeline.scrolled=true; document.getElementById("t"+nowT.replace(":",""))?.scrollIntoView({block:"start"}); }
@@ -1148,7 +1152,7 @@ function setFiller(code){
 function stamp(key,on){ day.by=day.by||{}; const c=fillerCode(); if(on===false||!c) delete day.by[key]; else day.by[key]=c; }
 function paintBy(){
   $$("[data-by]").forEach(el=>{ const p=person(day.by&&day.by[el.dataset.by]);
-    if(p){ el.textContent=p.name; el.style.setProperty("--pc",p.color); el.title="記錄者 Pencatat"; } else el.textContent=""; });
+    if(p){ el.textContent="✓ 記錄 "+p.name; el.style.setProperty("--pc",p.color); el.title="實際記錄者 Pencatat"; } else el.textContent=""; });
 }
 
 function dutyCard(withPicker){
