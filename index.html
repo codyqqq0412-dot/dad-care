@@ -415,16 +415,17 @@ button.calrow{cursor:pointer}
       <div class="set-grid" id="setTimes"></div>
       <h3 style="margin-top:14px">胰島素規則</h3>
       <div class="set-grid">
-        <div class="field"><label>短效(橘) 血糖 &gt; 多少才打</label><input type="number" data-c="stThr"></div>
+        <div class="field"><label>短效(橘) 血糖 ≥ 多少才打</label><input type="number" data-c="stThr"></div>
         <div class="field"><label>短效(橘) 每次劑量 Unit</label><input type="number" data-c="stDose"></div>
-        <div class="field"><label>長效(白) 判斷門檻 血糖 &gt;</label><input type="number" data-c="ltThr"></div>
-        <div class="field"><label>長效(白) 高於門檻打 Unit</label><input type="number" data-c="ltHi"></div>
-        <div class="field"><label>長效(白) 否則打 Unit</label><input type="number" data-c="ltLo"></div>
+        <div class="field"><label>長效(白) 固定劑量 Unit（不看血糖）</label><input type="number" data-c="ltFixed"></div>
+        <div class="field"><label>低於多少：不打胰島素、先灌牛奶</label><input type="number" data-c="bgHypo"></div>
+        <div class="field"><label>30 分鐘後再量，要高於</label><input type="number" data-c="bgRecheck"></div>
+        <div class="field"><label>高於等於多少：通知家屬及家庭醫師</label><input type="number" data-c="bgAlertHi"></div>
       </div>
       <h3 style="margin-top:14px">提醒範圍</h3>
       <div class="set-grid">
-        <div class="field"><label>血糖偏低 &lt;</label><input type="number" data-c="bgLo"></div>
-        <div class="field"><label>血糖偏高 &gt;</label><input type="number" data-c="bgHi"></div>
+        <div class="field"><label>血糖偏低（通知家人）&lt;</label><input type="number" data-c="bgLo"></div>
+        <div class="field"><label>報表目標範圍上限</label><input type="number" data-c="bgHi"></div>
         <div class="field"><label>收縮壓上限</label><input type="number" data-c="sbp"></div>
         <div class="field"><label>舒張壓上限</label><input type="number" data-c="dbp"></div>
         <div class="field"><label>心跳下限</label><input type="number" data-c="hrLo"></div>
@@ -525,7 +526,7 @@ const DEFAULT_TASKS = [
 "17:30 | Obat sebelum makan (7) · 飯前西藥(7)",
 "18:30 | Obat setelah makan (8, 11) · 飯後西藥(8、11)",
 "20:00 | Pijat ±50 menit · 看護按摩（約50分鐘） #pijat",
-"21:00 | Tetes mata, salep mata, obat bokong · 眼藥水、眼藥膏、屁股擦藥",
+"21:30 | Tetes mata, salep mata, obat bokong · 眼藥水、眼藥膏、屁股擦藥",
 "21:30 | Obat setelah makan (5, 6, 8, 10, 12) · 飯後西藥(5、6、8、10、12)",
 "21:30 | Pakai kaus kaki, obat kaki · 穿襪子、腳擦藥",
 "23:00 | Obat Cina · 中藥",
@@ -543,9 +544,9 @@ const DEFAULT_MILKS = [
 const DEFAULT_TURNS = ["00:00 | telentang","02:00 | kanan","04:00 | kiri","06:00 | telentang","08:00 | kanan","10:00 | kiri",
   "12:00 | telentang","14:00 | kanan","16:00 | kiri","18:00 | telentang","20:00 | kanan","22:00 | kiri"].join("\n");
 const DEFAULT_CFG = {
-  bgTimes:["05:30","10:30","18:00","21:00"], insTypes:["o","o","o","w"], vAm:"08:00", vPm:"22:00",
-  stThr:110, stDose:6, ltThr:130, ltHi:37, ltLo:35,
-  bgLo:70, bgHi:180, sbp:130, dbp:85, hrLo:60, hrHi:100, temp:37.5, spo2:95, constDays:3,
+  bgTimes:["05:30","11:30","18:00","23:00"], insTypes:["o","o","o","w"], bgKinds:["pre","pre","pre","post"], vAm:"08:00", vPm:"22:00",
+  stThr:110, stDose:6, ltFixed:35, ltThr:130, ltHi:37, ltLo:35,
+  bgLo:70, bgHi:180, bgHypo:60, bgRecheck:90, bgAlertHi:240, sbp:130, dbp:85, hrLo:60, hrHi:100, temp:37.5, spo2:95, constDays:3,
   tasks:DEFAULT_TASKS, milks:DEFAULT_MILKS, milkTypes:MILK_A+"\n"+MILK_B, turns:DEFAULT_TURNS,
   people:[
     {id:"cg1",kind:"cg",name:"Sumita",color:"#1D5FB8"},
@@ -668,7 +669,13 @@ $("#loginBtn").onclick = ()=>login($("#pw").value);
 $("#pw").onkeydown = e=>{ if(e.key==="Enter") login($("#pw").value); };
 $("#logoutBtn").onclick = ()=>logout();
 async function loadConfig(){
-  try{ const j=await api("getConfig"); cfg=Object.assign(clone(DEFAULT_CFG), j.config||{}); }
+  try{ const j=await api("getConfig"); cfg=Object.assign(clone(DEFAULT_CFG), j.config||{});
+    // 舊版設定（10:30、21:00、長效 37/35）→ 醫生 11/3 確認的規則
+    if(JSON.stringify(cfg.bgTimes)===JSON.stringify(["05:30","10:30","18:00","21:00"])) cfg.bgTimes=clone(DEFAULT_CFG.bgTimes);
+    if(!Array.isArray(cfg.bgKinds)) cfg.bgKinds=clone(DEFAULT_CFG.bgKinds);
+    if(cfg.ltFixed===undefined) cfg.ltFixed=DEFAULT_CFG.ltFixed;
+    for(const k of ["bgHypo","bgRecheck","bgAlertHi"]) if(cfg[k]===undefined) cfg[k]=DEFAULT_CFG[k];
+    cfg.tasks=String(cfg.tasks||"").replace("21:00 | Tetes mata, salep mata, obat bokong · 眼藥水、眼藥膏、屁股擦藥","21:30 | Tetes mata, salep mata, obat bokong · 眼藥水、眼藥膏、屁股擦藥"); }
   catch(e){ notice("讀取設定失敗："+esc(e.message),true); }
 }
 
@@ -695,8 +702,15 @@ function emptyDay(id){ return {date:id,bg:{},ins:{},vam:{},vpm:{},urine:0,stool:
   bath:false,enema:false,trach:false,ngt:false,tasks:{},milk:{},turns:{},by:{},at:{},skip:{},visits:{},note:""}; }
 function normDay(d,id){ const o=Object.assign(emptyDay(id), d?clone(d):{});
   for(const k of ["bg","ins","vam","vpm","tasks","milk","turns","by","at","skip","visits"]) o[k]=o[k]||{};
+  if(Array.isArray(o.slotDefs)&&o.slotDefs.length&&o.slotDefs[0].id!=="s1"){ const bg={},ins={};
+    o.slotDefs.slice(0,4).forEach((d,i)=>{ const s="s"+(i+1); if(o.bg[d.id]!==undefined) bg[s]=o.bg[d.id]; if(o.bg[d.id+"r"]!==undefined) bg[s+"r"]=o.bg[d.id+"r"]; if(o.ins[d.id]) ins[s]=o.ins[d.id]; });
+    o.bg=bg; o.ins=ins; delete o.slotDefs; }
   for(const k of ["stool","suction"]) o[k]=Array.isArray(o[k])?o[k]:[]; o.date=id; return o; }
-function suggest(slot,bg){ if(bg===null) return null; if(cfg.insTypes[slot]==="w") return bg>cfg.ltThr?cfg.ltHi:cfg.ltLo; return bg>cfg.stThr?cfg.stDose:0; }
+function suggest(slot,bg){ if(bg===null) return null; if(bg<cfg.bgHypo) return 0;
+  if(cfg.insTypes[slot]==="w") return (cfg.ltFixed!==null&&cfg.ltFixed!==undefined&&cfg.ltFixed!=="") ? Number(cfg.ltFixed) : (bg>=cfg.ltThr?cfg.ltHi:cfg.ltLo);
+  return bg>=cfg.stThr?cfg.stDose:0; }
+const bgKind = i => (cfg.bgKinds||[])[i]==="post" ? "post" : "pre";
+function slotDefsNow(){ return cfg.bgTimes.map((t,i)=>({id:"s"+(i+1), t, kind:bgKind(i), ins:cfg.insTypes[i]==="w"?"long":"short", insT:t})); }
 
 let curDay=iso(new Date()), day=emptyDay(curDay), dirty=false, saving=false, saveTimer=null, loadSeq=0;
 async function loadDay(id){
@@ -710,6 +724,7 @@ async function loadDay(id){
 function touch(){ dirty=true; $("#saveState").textContent="Menyimpan… 儲存中"; clearTimeout(saveTimer); saveTimer=setTimeout(saveDay,1200); updateLive(); }
 async function saveDay(){
   if(saving){ clearTimeout(saveTimer); saveTimer=setTimeout(saveDay,800); return; }
+  if(day.date>="2026-11-01") day.slotDefs=slotDefsNow();
   saving=true; const snap=JSON.stringify(day);
   try{ const body=JSON.parse(snap); body.updatedAt=new Date().toISOString(); await api("saveDay",{day:body});
     if(JSON.stringify(day)===snap) dirty=false;
@@ -802,15 +817,22 @@ function itemHTML(it){
       <button type="button" class="donebtn" data-milkdone="${it.t}" data-type="${esc(it.type)}" data-ml="${it.ml}" aria-pressed="${!!r.done}">Sudah diberikan 已餵完${r.at?` (${r.at})`:""}</button>`; }
   if(it.kind==="bg"){
     const s="s"+(it.slot+1), type=cfg.insTypes[it.slot], bg=day.bg[s]??"", ins=day.ins[s]||{};
-    const opts=type==="w"?[cfg.ltLo,cfg.ltHi]:[0,cfg.stDose];
+    const fixed=cfg.ltFixed!==null&&cfg.ltFixed!==undefined&&cfg.ltFixed!=="";
+    const opts=type==="w"?(fixed?[0,Number(cfg.ltFixed)]:[cfg.ltLo,cfg.ltHi]):[0,cfg.stDose];
+    const hypo=`<br>Gula darah &lt; ${cfg.bgHypo}: JANGAN suntik, beri susu dulu, cek lagi 30 menit (harus &gt; ${cfg.bgRecheck}).<span class="zh">血糖 &lt; ${cfg.bgHypo}：不打胰島素，先灌牛奶，30 分鐘後再量（要 &gt; ${cfg.bgRecheck}）</span>`;
     const rule=type==="w"
-      ? `Aturan: gula darah &gt; ${cfg.ltThr} → ${cfg.ltHi} unit, selain itu ${cfg.ltLo} unit<br><span class="zh">長效(白)：血糖 &gt; ${cfg.ltThr} 打 ${cfg.ltHi}，否則打 ${cfg.ltLo}</span>`
-      : `Aturan: gula darah &gt; ${cfg.stThr} → ${cfg.stDose} unit, selain itu tidak disuntik<br><span class="zh">短效(橘)：血糖 &gt; ${cfg.stThr} 打 ${cfg.stDose}，否則不打</span>`;
-    return `<h3>🩸 Gula darah <span class="zh">測血糖</span><span class="who" data-by="bg:${s}" data-t="${cfg.bgTimes[it.slot]}"></span></h3>
+      ? (fixed ? `Aturan: selalu ${cfg.ltFixed} unit (tidak tergantung gula darah)<br><span class="zh">長效(白)：固定打 ${cfg.ltFixed} 單位，不看血糖</span>`
+               : `Aturan: gula darah ≥ ${cfg.ltThr} → ${cfg.ltHi} unit, selain itu ${cfg.ltLo} unit<br><span class="zh">長效(白)：血糖 ≥ ${cfg.ltThr} 打 ${cfg.ltHi}，否則打 ${cfg.ltLo}</span>`)+hypo
+      : `Aturan: gula darah ≥ ${cfg.stThr} → ${cfg.stDose} unit, &lt; ${cfg.stThr} tidak disuntik. Suntik SEBELUM susu; kalau lupa, JANGAN disusul.<br><span class="zh">短效(橘)：血糖 ≥ ${cfg.stThr} 打 ${cfg.stDose}，&lt; ${cfg.stThr} 不打。喝奶前打；忘了就不補打</span>`+hypo;
+    const kind=bgKind(it.slot), kindTxt=kind==="post"?"2 jam setelah susu · 飯後兩小時":"sebelum susu · 飯前（喝奶前）";
+    const rc=day.bg[s+"r"]??"", showRc=num(bg)!==null&&num(bg)<cfg.bgHypo || rc!=="";
+    return `<h3>🩸 Gula darah <span class="zh">測血糖 · ${kindTxt}</span><span class="who" data-by="bg:${s}" data-t="${cfg.bgTimes[it.slot]}"></span></h3>
       <div class="measure"><div class="field"><label>mg/dL</label><input class="big" type="number" inputmode="numeric" data-bg="${s}" value="${esc(bg)}"></div>
       <div class="field"><label>Jari <span class="zh">手指</span></label><select data-bgf="${s}">${["","Kiri 左","Kanan 右"].map(o=>`<option ${day.bg[s+"f"]===o?"selected":""}>${o}</option>`).join("")}</select></div></div>
+      ${showRc?`<div class="field" style="margin-top:8px;max-width:220px"><label>Cek ulang 30 menit <span class="zh">30 分鐘後再量</span></label><input type="number" inputmode="numeric" data-bgr="${s}" value="${esc(rc)}"></div>`:""}
       <div class="ins ${type}"><b>💉 Insulin ${type==="w"?"Putih 白色長效":"Oranye 橘色短效"}</b><div class="rule">${rule}</div>
-        <div class="chips">${opts.map(o=>`<button type="button" class="chip ${type}" data-ins="${s}" data-v="${o}" aria-pressed="${ins.dose===o}">${o===0?"Tidak 不打":o+" unit"}</button>`).join("")}
+        <div class="chips">${opts.map(o=>`<button type="button" class="chip ${type}" data-ins="${s}" data-v="${o}" aria-pressed="${ins.dose===o&&!ins.missed}">${o===0?"Tidak 不打":o+" unit"}</button>`).join("")}
+          ${type!=="w"?`<button type="button" class="chip" data-insmiss="${s}" aria-pressed="${!!ins.missed}">Lupa 忘了打（不補打）</button>`:""}
           <input type="number" inputmode="numeric" placeholder="lain 其他" data-insx="${s}" value="${ins.dose!==undefined&&!opts.includes(ins.dose)?ins.dose:""}" style="width:90px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--surface)"></div>
         <div class="field" style="margin-top:8px"><label>Lokasi suntik <span class="zh">施打部位</span></label>
           <select data-site="${s}">${["","Lengan kiri 左手臂","Lengan kanan 右手臂","Perut kiri 左肚子","Perut kanan 右肚子","Paha kiri 左大腿","Paha kanan 右大腿"].map(o=>`<option ${ins.site===o?"selected":""}>${o}</option>`).join("")}</select></div>
@@ -839,9 +861,14 @@ function bindTimeline(){
   $$(T+"[data-task]").forEach(el=>el.onchange=()=>{ day.tasks[el.dataset.task]=el.checked; stamp("task:"+el.dataset.task, el.checked); el.closest(".task").classList.toggle("checked",el.checked); markDone(el);
     if(el.dataset.pijat){ day.rehab=$$(T+"[data-pijat]").filter(x=>x.checked).length; } touch(); });
   $$(T+"[data-bg]").forEach(el=>el.oninput=()=>{ const s=el.dataset.bg, v=num(el.value); if(v===null) delete day.bg[s]; else day.bg[s]=v; stamp("bg:"+s, v!==null); touch(); });
+  $$(T+"[data-bg]").forEach(el=>el.addEventListener("change",()=>{ const s=el.dataset.bg, v=num(el.value), need=v!==null&&v<cfg.bgHypo; if(need!==!!$(`${T}[data-bgr="${s}"]`)) renderTimeline(); }));
+  $$(T+"[data-bgr]").forEach(el=>el.oninput=()=>{ const s=el.dataset.bgr, v=num(el.value); if(v===null) delete day.bg[s+"r"]; else day.bg[s+"r"]=v; touch(); });
+  $$(T+"[data-insmiss]").forEach(el=>el.onclick=()=>{ const s=el.dataset.insmiss, r=day.ins[s]||{};
+    if(r.missed){ delete r.missed; delete r.dose; } else { r.missed=true; r.dose=0; r.type=cfg.insTypes[Number(s.slice(1))-1]; r.t=nowHM(); }
+    day.ins[s]=r; stamp("bg:"+s); touch(); renderTimeline(); });
   $$(T+"[data-bgf]").forEach(el=>el.onchange=()=>{ day.bg[el.dataset.bgf+"f"]=el.value; touch(); });
   $$(T+"[data-ins]").forEach(el=>el.onclick=()=>{ const s=el.dataset.ins;
-    day.ins[s]=Object.assign(day.ins[s]||{},{dose:Number(el.dataset.v),type:cfg.insTypes[Number(s.slice(1))-1],t:nowHM()});
+    day.ins[s]=Object.assign(day.ins[s]||{},{dose:Number(el.dataset.v),type:cfg.insTypes[Number(s.slice(1))-1],t:nowHM()}); delete day.ins[s].missed; $$(`${T}[data-insmiss="${s}"]`).forEach(b=>b.setAttribute("aria-pressed","false"));
     $$(`${T}[data-ins="${s}"]`).forEach(b=>b.setAttribute("aria-pressed",b===el)); $(`${T}[data-insx="${s}"]`).value=""; stamp("bg:"+s); touch(); });
   $$(T+"[data-insx]").forEach(el=>el.oninput=()=>{ const s=el.dataset.insx, v=num(el.value); if(v===null) return;
     day.ins[s]=Object.assign(day.ins[s]||{},{dose:v,type:cfg.insTypes[Number(s.slice(1))-1],t:nowHM()});
@@ -886,11 +913,14 @@ function markDone(el){ const slot=el.closest(".slot"); if(!slot) return; const t
 function updateLive(){
   const T="#timeline ", alerts=[];
   cfg.bgTimes.forEach((t,i)=>{ const s="s"+(i+1), bg=num(day.bg[s]), sug=suggest(i,bg), ins=day.ins[s], h=$(`${T}[data-hint="${s}"]`), inp=$(`${T}[data-bg="${s}"]`);
-    if(inp) inp.classList.toggle("bad",bg!==null&&(bg<cfg.bgLo||bg>cfg.bgHi));
-    if(bg!==null&&bg<cfg.bgLo) alerts.push(`⚠ ${t} Gula darah rendah ${bg}! Segera hubungi keluarga. 血糖偏低，立即通知家屬`);
-    if(bg!==null&&bg>cfg.bgHi) alerts.push(`⚠ ${t} Gula darah tinggi ${bg}. Hubungi keluarga. 血糖偏高，通知家屬`);
+    if(inp) inp.classList.toggle("bad",bg!==null&&(bg<cfg.bgLo||bg>=cfg.bgAlertHi));
+    const rc=num(day.bg[s+"r"]);
+    if(bg!==null&&bg<cfg.bgHypo) alerts.push(`⚠ ${t} Gula darah ${bg} < ${cfg.bgHypo}! JANGAN suntik insulin, beri susu dulu, cek lagi 30 menit, hubungi keluarga. 不打胰島素，先灌牛奶，30 分鐘後再量，通知家屬`+(rc!==null?(rc>cfg.bgRecheck?`（再量 ${rc}，已回升 ✓）`:` ⚠ Cek ulang ${rc} belum > ${cfg.bgRecheck} — segera hubungi keluarga! 再量 ${rc} 還沒超過 ${cfg.bgRecheck}，立即通知家屬`):""));
+    else if(bg!==null&&bg<cfg.bgLo) alerts.push(`⚠ ${t} Gula darah rendah ${bg}. Hubungi keluarga. 血糖低於 ${cfg.bgLo}，通知家屬`);
+    if(bg!==null&&bg>=cfg.bgAlertHi) alerts.push(`⚠ ${t} Gula darah tinggi ${bg}. Hubungi keluarga & dokter keluarga. 血糖 ≥ ${cfg.bgAlertHi}，通知家屬及家庭醫師`);
     if(!h) return; if(sug===null){ h.textContent=""; h.className="hint"; return; }
     const sugTxt=sug===0?"tidak disuntik":sug+" unit";
+    if(ins?.missed){ h.textContent="Lupa disuntik — tidak disusul. 忘了打，這次不補打（已記錄）"; h.className="hint warn"; return; }
     if(ins?.dose!==undefined&&ins.dose!==sug){ h.textContent=`⚠ Menurut aturan: ${sugTxt}, yang dicatat: ${ins.dose}. Mohon cek lagi. 與規則不同，請再確認`; h.className="hint warn"; }
     else { h.textContent=`Menurut aturan 依規則：${sug===0?"tidak disuntik 不打":sug+" unit 單位"}`; h.className="hint"; } });
   for(const w of ["vam","vpm"]){ const v=day[w], lab=w==="vam"?"pagi 早上":"malam 晚上";
@@ -993,7 +1023,7 @@ function renderReport(){
   const avg=k=>has.length?Math.round(has.reduce((s,r)=>s+(Number(k(r))||0),0)/has.length*10)/10:"–";
   const stDoses=has.reduce((s,r)=>s+[1,2,3].filter(i=>num(r.ins["s"+i]?.dose)>0).length,0);
   const ltHiDays=has.filter(r=>num(r.ins.s4?.dose)===cfg.ltHi).length, ltLoDays=has.filter(r=>num(r.ins.s4?.dose)===cfg.ltLo).length;
-  const mismatch=(r,i)=>{ const bg=num(r.bg["s"+(i+1)]), d=num(r.ins["s"+(i+1)]?.dose), s=suggest(i,bg); return bg!==null&&s!==null&&((d===null&&s>0)||(d!==null&&d!==s)); };
+  const mismatch=(r,i)=>{ if(r.ins["s"+(i+1)]?.missed) return false; const bg=num(r.bg["s"+(i+1)]), d=num(r.ins["s"+(i+1)]?.dose), s=suggest(i,bg); return bg!==null&&s!==null&&((d===null&&s>0)||(d!==null&&d!==s)); };
   const mism=has.filter(r=>[0,1,2,3].some(i=>mismatch(r,i))).length;
   const milkDone=r=>Object.values(r.milk).filter(m=>m.done);
   const mTypes=milkTypes(); const milkByType=mTypes.map(m=>rows.map(r=>r?milkDone(r).filter(x=>x.type===m).reduce((s,x)=>s+(Number(x.ml)||0),0)||null:null));
@@ -1124,7 +1154,7 @@ $("#exportBtn").onclick=()=>{ if(!lastCSV) return; const a=document.createElemen
 
 /* ================= 設定 ================= */
 function renderSettings(){
-  $("#setTimes").innerHTML=cfg.bgTimes.map((t,i)=>`<div class="field"><label>第${i+1}次血糖＋胰島素（${cfg.insTypes[i]==="w"?"白色長效":"橘色短效"}）</label><input type="time" data-bt="${i}" value="${t}"></div>`).join("")
+  $("#setTimes").innerHTML=cfg.bgTimes.map((t,i)=>`<div class="field"><label>第${i+1}次血糖＋胰島素（${cfg.insTypes[i]==="w"?"白色長效":"橘色短效"}）</label><div class="ppl-row"><input type="time" data-bt="${i}" value="${t}"><select data-bk="${i}"><option value="pre" ${bgKind(i)==="pre"?"selected":""}>飯前（喝奶前）</option><option value="post" ${bgKind(i)==="post"?"selected":""}>飯後兩小時</option></select></div></div>`).join("")
     +`<div class="field"><label>早上生命徵象時間</label><input type="time" data-vt="vAm" value="${cfg.vAm}"></div><div class="field"><label>晚上生命徵象時間</label><input type="time" data-vt="vPm" value="${cfg.vPm}"></div>`;
   $$("[data-c]").forEach(el=>el.value=cfg[el.dataset.c]);
   $("#setTasks").value=cfg.tasks; $("#setMilks").value=cfg.milks; $("#setMilkTypes").value=cfg.milkTypes; $("#setTurns").value=cfg.turns;
@@ -1139,6 +1169,7 @@ function renderSettings(){
 $("#saveCfg").onclick=async()=>{
   const n=clone(cfg);
   $$("[data-bt]").forEach(el=>n.bgTimes[Number(el.dataset.bt)]=el.value);
+  n.bgKinds=[0,1,2,3].map(i=>$(`[data-bk="${i}"]`)?.value||bgKind(i));
   $$("[data-vt]").forEach(el=>n[el.dataset.vt]=el.value);
   $$("[data-c]").forEach(el=>{ const v=num(el.value); if(v!==null) n[el.dataset.c]=v; });
   n.tasks=$("#setTasks").value; n.milks=$("#setMilks").value; n.milkTypes=$("#setMilkTypes").value; n.turns=$("#setTurns").value;
