@@ -254,6 +254,23 @@ button.calrow{cursor:pointer}
 .ppl-row input[type=color]{width:46px;height:44px;padding:2px;border-radius:10px;border:1px solid var(--line);background:var(--surface2);flex:none}
 .ppl-row input[type=text]{flex:1;min-width:0}
 @media print{body{background:#fff!important}}
+.visit{background:var(--surface2);border:2px dashed var(--line);border-radius:14px;padding:10px 12px}
+.visit h3{margin-top:0}
+.visit .row2 input{width:100%;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:16px}
+.visit input[type=text]{width:100%;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:16px}
+.visitnote{border-left:4px solid var(--amber);padding-left:8px;margin:0 0 10px}
+.skipbtn{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:8px;padding:3px 8px;font-size:12px;cursor:pointer;flex:none}
+.task .skipbtn{margin-left:auto}
+.skipbtn.on{border-color:var(--red);color:var(--red);font-weight:700}
+.skipnote{flex-basis:100%;font-size:13px;font-weight:600;color:var(--red)}
+.skipnote:empty{display:none}
+.vtag{display:inline-flex;align-items:center;gap:3px;font-size:12px;border:1px solid var(--line);border-radius:20px;padding:1px 8px;color:var(--muted);white-space:nowrap}
+.vtag.off{text-decoration:line-through;opacity:.7}
+.vrow{display:grid;grid-template-columns:1fr 130px auto;gap:6px;align-items:center;margin-bottom:6px;font-size:14px}
+.vrow input{padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--surface2);font-size:15px;width:100%}
+.xrow{display:grid;grid-template-columns:100px 1fr 1fr 64px auto;gap:6px;margin-bottom:6px}
+.xrow input{padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--surface2);font-size:15px;width:100%;min-width:0}
+@media (max-width:560px){.xrow{grid-template-columns:1fr 1fr}.vrow{grid-template-columns:1fr 124px auto}}
 </style>
 </head>
 <body>
@@ -391,6 +408,8 @@ button.calrow{cursor:pointer}
         <div class="field"><label>預設夜班</label><select data-s="defNight"></select></div>
         <div class="field"><label>週末家人接手 開始（留空＝不預設）</label><input type="time" data-s="weFrom"></div>
         <div class="field"><label>週末家人接手 結束</label><input type="time" data-s="weTo"></div>
+        <div class="field"><label>看護 1 每週例休日（班表會空出這班讓家人排）</label><select data-rest="restCg1"></select></div>
+        <div class="field"><label>看護 2 每週例休日</label><select data-rest="restCg2"></select></div>
       </div>
       <h3 style="margin-top:14px">血糖量測與胰島素時間</h3>
       <div class="set-grid" id="setTimes"></div>
@@ -420,7 +439,10 @@ button.calrow{cursor:pointer}
       <div class="field"><textarea id="setMilks" style="min-height:160px"></textarea></div>
       <h3 style="margin-top:14px">翻身時間表（時間 | telentang 平躺／kiri 左側／kanan 右側）</h3>
       <div class="field"><textarea id="setTurns" style="min-height:220px"></textarea></div>
-      <h3 style="margin-top:14px">看護每日流程（時間 | 印尼文 · 中文，按摩項目後面加 #pijat）</h3>
+      <h3 style="margin-top:14px">固定外部到訪（時間 | 誰 | 做什麼 | 分鐘 | 星期幾）</h3>
+      <div class="rule">例：<code>07:30 | 張師傅 | 按摩 Pijat terapis | 120 | 二五日</code>。某一天改時間或沒來，到「班表休假」點那一天調整；當天實際到達時間由看護在填寫頁記錄。</div>
+      <div class="field"><textarea id="setVisits" style="min-height:120px;font-size:14px"></textarea></div>
+      <h3 style="margin-top:14px">看護每日流程（時間 | 印尼文 · 中文，按摩項目加 #pijat，只在某幾天做加 @一三五）</h3>
       <div class="field"><textarea id="setTasks" style="min-height:320px;font-size:14px"></textarea></div>
       <div class="dlg-act"><button class="btn primary" id="saveCfg">儲存設定</button></div>
       <div class="save" id="cfgState"></div>
@@ -467,6 +489,9 @@ button.calrow{cursor:pointer}
   <div class="dlg-act"><button class="btn" data-close>取消 Batal</button><button class="btn primary" id="dayOk">儲存 Simpan</button></div>
   <div class="save" id="dayState"></div>
 </dialog>
+<dialog id="dlgSkip"><h3>沒有做的原因 <span class="zh">Alasan tidak dilakukan</span></h3><div id="skipBody"></div>
+  <div class="dlg-act"><button class="btn" id="skipClear">清除標記 Hapus</button><button class="btn" data-close>關閉 Tutup</button><button class="btn primary" id="skipOk">確定 OK</button></div>
+</dialog>
 <dialog id="dlgLeave"><div id="lvDlgBody"></div>
   <div class="dlg-act"><button class="btn" data-close>取消 Batal</button><button class="btn primary" id="lvOk">送出 Kirim</button></div>
   <div class="save" id="lvState"></div>
@@ -491,20 +516,26 @@ const DEFAULT_TASKS = [
 "08:00 | Ganti plester NGT · 換鼻胃貼",
 "08:30 | Obat sebelum makan (7) · 飯前西藥(7)",
 "09:30 | Obat setelah makan (3, 4, 5, 6, 8, 11) · 飯後西藥(3、4、5、6、8、11)",
-"10:00 | Pijat sendi tungkai · 肢體關節按摩 #pijat",
+"10:00 | Pijat sendi tungkai · 肢體關節按摩 #pijat @一三四六",
 "12:00 | Tetes mata · 眼藥水",
 "12:30 | Obat setelah makan (8, 12) · 飯後西藥(8、12)",
 "14:30 | Obat Cina · 中藥",
 "14:30 | Lap badan, lotion · 擦澡擦乳液",
-"16:00 | Pijat sendi tungkai · 肢體關節按摩 #pijat",
+"16:00 | Pijat ±50 menit · 看護按摩（約50分鐘） #pijat",
 "17:30 | Obat sebelum makan (7) · 飯前西藥(7)",
 "18:30 | Obat setelah makan (8, 11) · 飯後西藥(8、11)",
-"20:00 | Pijat sendi tungkai · 肢體關節按摩 #pijat",
+"20:00 | Pijat ±50 menit · 看護按摩（約50分鐘） #pijat",
 "21:00 | Tetes mata, salep mata, obat bokong · 眼藥水、眼藥膏、屁股擦藥",
 "21:30 | Obat setelah makan (5, 6, 8, 10, 12) · 飯後西藥(5、6、8、10、12)",
 "21:30 | Pakai kaus kaki, obat kaki · 穿襪子、腳擦藥",
 "23:00 | Obat Cina · 中藥",
 "23:00 | Pijat sendi, tepuk punggung · 肢體按摩、拍背 #pijat"
+].join("\n");
+const DEFAULT_VISITS = [
+"07:30 | 張師傅 | 按摩 Pijat terapis | 120 | 二五日",
+"16:00 | 邱醫生 | 針灸 Akupunktur | 30 | 一",
+"09:00 | 邱醫生 | 針灸 Akupunktur | 30 | 三六",
+"08:00 | 洗澡車 | 洗澡 Mobil mandi | 60 | 三"
 ].join("\n");
 const DEFAULT_MILKS = [
   "06:00 | "+MILK_B+" | 250","09:00 | "+MILK_A+" | 250","12:00 | "+MILK_A+" | 250",
@@ -525,7 +556,8 @@ const DEFAULT_CFG = {
     {id:"f4",kind:"fam",name:"廖小明",color:"#6B46C1"},
     {id:"f5",kind:"fam",name:"賴逸華",color:"#00838F"},
     {id:"other",kind:"fam",name:"其他",color:"#546E7A"}],
-  dayStart:"07:00", nightStart:"19:00", defDay:"cg1", defNight:"cg2", weFrom:"09:00", weTo:"12:00"
+  dayStart:"07:00", nightStart:"19:00", defDay:"cg1", defNight:"cg2", weFrom:"09:00", weTo:"12:00",
+  visits:DEFAULT_VISITS, restCg1:"", restCg2:""
 };
 let cfg = JSON.parse(JSON.stringify(DEFAULT_CFG));
 
@@ -539,6 +571,9 @@ const parse = s => { const [y,m,d]=s.split("-").map(Number); return new Date(y,m
 const addDays = (s,n) => { const d=parse(s); d.setDate(d.getDate()+n); return iso(d); };
 const WD_ID = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
 const WD_ZH = ["日","一","二","三","四","五","六"];
+const WDCH = "日一二三四五六";
+const toMin = t => { const [h,m]=String(t).split(":").map(Number); return h*60+m; };
+const addMin = (t,m) => { const x=Math.min(toMin(t)+m,23*60+59); return pad(Math.floor(x/60))+":"+pad(x%60); };
 const num = v => (v===""||v===null||v===undefined||isNaN(Number(v))) ? null : Number(v);
 const nowHM = () => { const d=new Date(); return pad(d.getHours())+":"+pad(d.getMinutes()); };
 const short = s => { const d=parse(s); return (d.getMonth()+1)+"/"+d.getDate(); };
@@ -547,7 +582,18 @@ function esc(s){ return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&
 function lines(txt){ return String(txt||"").split("\n").map(l=>l.trim()).filter(Boolean); }
 function parseTasks(txt){ return lines(txt).map(l=>{ const m=l.match(/^(\d{1,2}:\d{2})\s*\|\s*(.+)$/); if(!m) return null;
   let label=m[2].trim(); const pijat=/#pijat\b/.test(label); label=label.replace(/#pijat\b/,"").trim();
-  const t=normT(m[1]); return {t,label,pijat,id:(t+"|"+label).replace(/\s+/g," ")}; }).filter(Boolean); }
+  let wd=null; const wm=label.match(/@([日一二三四五六]+)/); if(wm){ wd=[...wm[1]].map(c=>WDCH.indexOf(c)); label=label.replace(wm[0],"").trim(); }
+  const t=normT(m[1]); return {t,label,pijat,wd,id:(t+"|"+label).replace(/\s+/g," ")}; }).filter(Boolean); }
+const tasksFor = date => { const w=parse(date).getDay(); return parseTasks(cfg.tasks).filter(x=>!x.wd||x.wd.includes(w)); };
+function parseVisits(txt){ return lines(txt).map(l=>{ const p=l.split("|").map(x=>x.trim()); if(!/^\d{1,2}:\d{2}$/.test(p[0]||"")) return null;
+  const wd=[...new Set([...(p[4]||WDCH)].map(c=>WDCH.indexOf(c)).filter(x=>x>=0))];
+  return {id:((p[1]||"")+"|"+(p[2]||"")+"|"+wd.join("")).replace(/\s+/g," "), t:normT(p[0]), who:p[1]||"訪客", what:p[2]||"", min:num(p[3])??60, wd}; }).filter(Boolean); }
+function plannedVisits(date){
+  const w=parse(date).getDay(), sd=sched(date), adj=sd.vis||{};
+  const reg=parseVisits(cfg.visits).filter(v=>v.wd.includes(w)).map(v=>{ const a=adj[v.id]||{}; return Object.assign({},v,{regT:v.t, t:a.t||v.t, off:!!a.off, moved:!!a.t&&a.t!==v.t}); });
+  const ex=(sd.extra||[]).filter(x=>x&&x.t).map(x=>({id:"x|"+x.t+"|"+x.who+"|"+x.what, t:x.t, who:x.who||"訪客", what:x.what||"", min:num(x.min)??60, extra:true}));
+  return reg.concat(ex).sort((a,b)=>a.t.localeCompare(b.t));
+}
 function parseMilks(txt){ return lines(txt).map(l=>{ const p=l.split("|").map(x=>x.trim()); if(!/^\d{1,2}:\d{2}$/.test(p[0]||"")) return null;
   return {t:normT(p[0]), type:p[1]||"", ml:num(p[2])??250}; }).filter(Boolean); }
 function parseTurns(txt){ return lines(txt).map(l=>{ const p=l.split("|").map(x=>x.trim().toLowerCase()); if(!/^\d{1,2}:\d{2}$/.test(p[0]||"")) return null;
@@ -646,9 +692,9 @@ window.addEventListener("hashchange",route);
 
 /* ================= 看護填寫 ================= */
 function emptyDay(id){ return {date:id,bg:{},ins:{},vam:{},vpm:{},urine:0,stool:[],suction:[],rehab:0,acu:0,wipe:0,
-  bath:false,enema:false,trach:false,ngt:false,tasks:{},milk:{},turns:{},by:{},note:""}; }
+  bath:false,enema:false,trach:false,ngt:false,tasks:{},milk:{},turns:{},by:{},at:{},skip:{},visits:{},note:""}; }
 function normDay(d,id){ const o=Object.assign(emptyDay(id), d?clone(d):{});
-  for(const k of ["bg","ins","vam","vpm","tasks","milk","turns","by"]) o[k]=o[k]||{};
+  for(const k of ["bg","ins","vam","vpm","tasks","milk","turns","by","at","skip","visits"]) o[k]=o[k]||{};
   for(const k of ["stool","suction"]) o[k]=Array.isArray(o[k])?o[k]:[]; o.date=id; return o; }
 function suggest(slot,bg){ if(bg===null) return null; if(cfg.insTypes[slot]==="w") return bg>cfg.ltThr?cfg.ltHi:cfg.ltLo; return bg>cfg.stThr?cfg.stDose:0; }
 
@@ -693,11 +739,12 @@ function renderPosNow(){
 
 function slotDone(items){
   return items.every(it=>{
-    if(it.kind==="task") return !!day.tasks[it.id];
+    if(it.kind==="task") return !!day.tasks[it.id] || !!day.skip["task:"+it.id];
+    if(it.kind==="visit") return ["done","no"].includes(day.visits[it.v.id]?.st);
     if(it.kind==="bg") return num(day.bg["s"+(it.slot+1)])!==null && day.ins["s"+(it.slot+1)]?.dose!==undefined;
     if(it.kind==="vital"){ const v=day[it.which]; return num(v.hr)!==null && num(v.temp)!==null && (num(v.sysL)!==null||num(v.sysR)!==null); }
     if(it.kind==="milk") return !!day.milk[it.t]?.done;
-    if(it.kind==="turn") return !!day.turns[it.t]?.done;
+    if(it.kind==="turn") return !!day.turns[it.t]?.done || !!day.skip["turn:"+it.t];
     return true;
   });
 }
@@ -712,8 +759,10 @@ function renderTimeline(){
   items.push({t:cfg.vAm,kind:"vital",which:"vam"}); items.push({t:cfg.vPm,kind:"vital",which:"vpm"});
   parseMilks(cfg.milks).forEach(m=>items.push(Object.assign({kind:"milk"},m)));
   parseTurns(cfg.turns).forEach(m=>items.push(Object.assign({kind:"turn"},m)));
-  parseTasks(cfg.tasks).forEach(x=>items.push(Object.assign({kind:"task"},x)));
-  const order={turn:0,bg:1,vital:2,milk:3,task:4};
+  tasksFor(curDay).forEach(x=>items.push(Object.assign({kind:"task"},x)));
+  const pv=plannedVisits(curDay).filter(v=>!v.off);
+  pv.forEach(v=>items.push({t:v.t,kind:"visit",v}));
+  const order={visit:-1,turn:0,bg:1,vital:2,milk:3,task:4};
   const groups={}; items.forEach(it=>(groups[it.t]=groups[it.t]||[]).push(it));
   const times=Object.keys(groups).sort();
   const isToday=curDay===iso(new Date()), now=nowHM(); let nowT=null; if(isToday) for(const t of times) if(t<=now) nowT=t;
@@ -724,23 +773,27 @@ function renderTimeline(){
     const col=p?p.color:"var(--line)";
     const sep = dk!==lastDuty ? `<div class="shiftsep" style="--pc:${col}">${du.label} ${du.range} · ${p?esc(p.name):"未安排 Belum diatur"}</div>` : "";
     lastDuty=dk;
-    return `${sep}<div class="${cls.join(" ")}" id="t${t.replace(":","")}" style="--pc:${col}"><div class="time">${t}</div><div class="card"><div class="owner">${whoTag(du.who,"👤 負責 Petugas")}</div>${g.map(itemHTML).join('<hr style="border:none;border-top:1px solid var(--line);margin:10px 0">')}</div></div>`; }).join("");
+    const cov=pv.filter(v=>day.visits[v.id]?.st!=="no" && v.t<=t && t<addMin(v.t,v.min) && !g.some(x=>x.kind==="visit"&&x.v.id===v.id));
+    const feedRisk=cov.some(v=>/按摩|Pijat|洗澡|Mandi|換|榮總/.test(v.who+v.what)) && g.some(x=>x.kind==="milk");
+    const vnote=cov.length?`<div class="hint visitnote">⏸ ${cov.map(v=>`${esc(v.who)} ${esc(v.what.split(" ")[0])} ${v.t}–${addMin(v.t,v.min)}`).join("、")}：這段時間的工作可以延後，做完再勾選，系統會記下實際時間。<br>Ada kunjungan — pekerjaan boleh ditunda. Centang setelah selesai, jam tercatat otomatis.${feedRisk?`<br><b>⚠ 按摩、洗澡或換管進行中不要灌食，等結束、床頭抬高後再餵。Jangan beri susu saat dipijat/mandi; tunggu selesai &amp; kepala ditinggikan.</b>`:""}</div>`:"";
+    return `${sep}<div class="${cls.join(" ")}" id="t${t.replace(":","")}" style="--pc:${col}"><div class="time">${t}</div><div class="card"><div class="owner">${whoTag(du.who,"👤 負責 Petugas")}</div>${vnote}${g.map(itemHTML).join('<hr style="border:none;border-top:1px solid var(--line);margin:10px 0">')}</div></div>`; }).join("");
   const y=window.scrollY; $("#timeline").innerHTML=html; window.scrollTo(0,y);
   bindTimeline(); renderSummary(); updateLive();
   if(isToday && nowT && !renderTimeline.scrolled){ renderTimeline.scrolled=true; document.getElementById("t"+nowT.replace(":",""))?.scrollIntoView({block:"start"}); }
 }
 function itemHTML(it){
   if(it.kind==="task"){ const c=!!day.tasks[it.id]; const [idn,zh]=it.label.split(" · ");
-    return `<label class="task ${c?"checked":""}"><input type="checkbox" data-task="${esc(it.id)}" ${c?"checked":""} ${it.pijat?'data-pijat="1"':""}><span>${esc(idn)}${zh?` <span class="zh">${esc(zh)}</span>`:""}</span><span class="who" data-by="task:${esc(it.id)}"></span></label>`; }
+    return `<label class="task ${c?"checked":""}"><input type="checkbox" data-task="${esc(it.id)}" ${c?"checked":""} ${it.pijat?'data-pijat="1"':""}><span>${esc(idn)}${zh?` <span class="zh">${esc(zh)}</span>`:""}</span><span class="who" data-by="task:${esc(it.id)}" data-t="${it.t}"></span><button type="button" class="skipbtn" data-skip="task:${esc(it.id)}">未做</button><span class="skipnote" data-skipnote="task:${esc(it.id)}"></span></label>`; }
   if(it.kind==="turn"){ const r=day.turns[it.t]||{}; const actual=r.pos||it.pos;
-    return `<h3>🛏️ Ubah posisi <span class="zh">翻身</span><span class="who" data-by="turn:${it.t}"></span></h3>
+    return `<h3>🛏️ Ubah posisi <span class="zh">翻身</span><span class="who" data-by="turn:${it.t}" data-t="${it.t}"></span></h3>
       <div class="pos">${posSVG(it.pos)}<div class="ptxt"><div class="zh">Jadwal 排定</div>${posText(it.pos)}</div></div>
       <div class="field" style="margin-top:8px"><label>Posisi yang dilakukan <span class="zh">實際翻成</span></label>
       <div class="chips">${["telentang","kiri","kanan"].map(p=>`<button type="button" class="chip" data-turnpos="${it.t}" data-v="${p}" aria-pressed="${actual===p}">${POS[p].id} ${POS[p].zh}</button>`).join("")}</div></div>
       <label class="toggle"><span>Ada kulit merah / luka tekan? <span class="zh">有皮膚發紅或壓瘡嗎？</span></span><input type="checkbox" data-turnskin="${it.t}" ${r.skin?"checked":""}></label>
-      <button type="button" class="donebtn" data-turndone="${it.t}" data-sched="${it.pos}" aria-pressed="${!!r.done}">Sudah diubah 已翻身${r.at?` (${r.at})`:""}</button>`; }
+      <button type="button" class="donebtn" data-turndone="${it.t}" data-sched="${it.pos}" aria-pressed="${!!r.done}">Sudah diubah 已翻身${r.at?` (${r.at})`:""}</button>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px"><button type="button" class="skipbtn" data-skip="turn:${it.t}">沒翻 Tidak dilakukan</button><span class="skipnote" data-skipnote="turn:${it.t}"></span></div>`; }
   if(it.kind==="milk"){ const r=day.milk[it.t]||{}; const type=r.type||it.type, ml=r.ml??it.ml;
-    return `<h3>🍼 Susu <span class="zh">牛奶</span><span class="who" data-by="milk:${it.t}"></span></h3>
+    return `<h3>🍼 Susu <span class="zh">牛奶</span><span class="who" data-by="milk:${it.t}" data-t="${it.t}"></span></h3>
       <div class="milk"><div style="font-size:14px">Instruksi dokter <span class="zh">醫囑</span>：<b>${esc(it.type)}</b> · ${it.ml} ml</div>
       <div class="field" style="margin-top:8px"><label>Susu yang diberikan <span class="zh">實際餵的牛奶</span></label>
       <div class="chips">${milkTypes().map(m=>`<button type="button" class="chip" data-milktype="${it.t}" data-v="${esc(m)}" aria-pressed="${type===m}">${esc(m)}</button>`).join("")}</div></div>
@@ -753,7 +806,7 @@ function itemHTML(it){
     const rule=type==="w"
       ? `Aturan: gula darah &gt; ${cfg.ltThr} → ${cfg.ltHi} unit, selain itu ${cfg.ltLo} unit<br><span class="zh">長效(白)：血糖 &gt; ${cfg.ltThr} 打 ${cfg.ltHi}，否則打 ${cfg.ltLo}</span>`
       : `Aturan: gula darah &gt; ${cfg.stThr} → ${cfg.stDose} unit, selain itu tidak disuntik<br><span class="zh">短效(橘)：血糖 &gt; ${cfg.stThr} 打 ${cfg.stDose}，否則不打</span>`;
-    return `<h3>🩸 Gula darah <span class="zh">測血糖</span><span class="who" data-by="bg:${s}"></span></h3>
+    return `<h3>🩸 Gula darah <span class="zh">測血糖</span><span class="who" data-by="bg:${s}" data-t="${cfg.bgTimes[it.slot]}"></span></h3>
       <div class="measure"><div class="field"><label>mg/dL</label><input class="big" type="number" inputmode="numeric" data-bg="${s}" value="${esc(bg)}"></div>
       <div class="field"><label>Jari <span class="zh">手指</span></label><select data-bgf="${s}">${["","Kiri 左","Kanan 右"].map(o=>`<option ${day.bg[s+"f"]===o?"selected":""}>${o}</option>`).join("")}</select></div></div>
       <div class="ins ${type}"><b>💉 Insulin ${type==="w"?"Putih 白色長效":"Oranye 橘色短效"}</b><div class="rule">${rule}</div>
@@ -763,9 +816,18 @@ function itemHTML(it){
           <select data-site="${s}">${["","Lengan kiri 左手臂","Lengan kanan 右手臂","Perut kiri 左肚子","Perut kanan 右肚子","Paha kiri 左大腿","Paha kanan 右大腿"].map(o=>`<option ${ins.site===o?"selected":""}>${o}</option>`).join("")}</select></div>
         <div class="hint" data-hint="${s}"></div></div>`;
   }
+  if(it.kind==="visit"){ const v=it.v, r=day.visits[v.id]||{}, end=addMin(v.t,v.min), id=esc(v.id);
+    const tube=/榮總|換管|氣切|鼻胃/.test(v.who+v.what);
+    return `<div class="visit"><h3>🧑‍⚕️ ${esc(v.who)} <span class="zh">${esc(v.what)}</span><span class="who" data-by="visit:${id}"></span></h3>
+      <div class="rule">預計 Jadwal ${v.t}–${end}（約 ${v.min} 分 menit）${v.moved?` · 原本 ${v.regT}，今天改時間 jam diubah`:""}${v.extra?" · 臨時安排 khusus":""}</div>
+      <div class="chips" style="margin-top:6px">${[["in","🚪 已到 Sudah datang"],["done","✅ 結束 Selesai"],["no","🚫 沒來 Tidak datang"]].map(([k,l])=>`<button type="button" class="chip" data-vst="${id}" data-v="${k}" aria-pressed="${r.st===k}">${l}</button>`).join("")}</div>
+      <div class="row2" style="margin-top:8px"><div class="field"><label>到達 Datang</label><input type="time" data-vin="${id}" value="${esc(r.in||"")}"></div><div class="field"><label>離開 Pulang</label><input type="time" data-vout="${id}" value="${esc(r.out||"")}"></div></div>
+      ${tube?`<label class="toggle"><span>Ganti selang trakeostomi <span class="zh">已換氣切管</span></span><input type="checkbox" data-t2="trach" ${day.trach?"checked":""}></label>
+      <label class="toggle"><span>Ganti selang NGT <span class="zh">已換鼻胃管</span></span><input type="checkbox" data-t2="ngt" ${day.ngt?"checked":""}></label>`:""}
+      <div class="field" style="margin-top:8px"><label>Catatan <span class="zh">備註（例：晚到、提早走、做了什麼）</span></label><input type="text" data-vnote="${id}" value="${esc(r.note||"")}"></div></div>`; }
   if(it.kind==="vital"){ const v=day[it.which]||{}, w=it.which;
     const f=(k,lab,step)=>`<div class="field"><label>${lab}</label><input type="number" inputmode="decimal" ${step?`step="${step}"`:""} data-vv="${w}.${k}" value="${esc(v[k]??"")}"></div>`;
-    return `<h3>❤️ Tanda vital ${w==="vam"?"pagi 早上":"malam 晚上（可選）"} <span class="zh">生命徵象</span><span class="who" data-by="v:${w}"></span></h3>
+    return `<h3>❤️ Tanda vital ${w==="vam"?"pagi 早上":"malam 晚上（可選）"} <span class="zh">生命徵象</span><span class="who" data-by="v:${w}" data-t="${w==="vam"?cfg.vAm:cfg.vPm}"></span></h3>
       <div class="measure">${f("sysL","Sistolik kiri <span class='zh'>左手收縮壓</span>")}${f("diaL","Diastolik kiri <span class='zh'>左手舒張壓</span>")}
       ${f("sysR","Sistolik kanan <span class='zh'>右手收縮壓</span>")}${f("diaR","Diastolik kanan <span class='zh'>右手舒張壓</span>")}
       ${f("hr","Denyut <span class='zh'>心跳</span>")}${f("temp","Suhu °C <span class='zh'>體溫</span>","0.1")}${f("spo2","SpO2 % <span class='zh'>血氧</span>")}</div>
@@ -774,7 +836,7 @@ function itemHTML(it){
 }
 function bindTimeline(){
   const T="#timeline ";
-  $$(T+"[data-task]").forEach(el=>el.onchange=()=>{ day.tasks[el.dataset.task]=el.checked; stamp("task:"+el.dataset.task, el.checked); el.closest(".task").classList.toggle("checked",el.checked);
+  $$(T+"[data-task]").forEach(el=>el.onchange=()=>{ day.tasks[el.dataset.task]=el.checked; stamp("task:"+el.dataset.task, el.checked); el.closest(".task").classList.toggle("checked",el.checked); markDone(el);
     if(el.dataset.pijat){ day.rehab=$$(T+"[data-pijat]").filter(x=>x.checked).length; } touch(); });
   $$(T+"[data-bg]").forEach(el=>el.oninput=()=>{ const s=el.dataset.bg, v=num(el.value); if(v===null) delete day.bg[s]; else day.bg[s]=v; stamp("bg:"+s, v!==null); touch(); });
   $$(T+"[data-bgf]").forEach(el=>el.onchange=()=>{ day.bg[el.dataset.bgf+"f"]=el.value; touch(); });
@@ -786,6 +848,19 @@ function bindTimeline(){
     $$(`${T}[data-ins="${s}"]`).forEach(b=>b.setAttribute("aria-pressed","false")); stamp("bg:"+s); touch(); });
   $$(T+"[data-site]").forEach(el=>el.onchange=()=>{ const s=el.dataset.site; day.ins[s]=Object.assign(day.ins[s]||{},{site:el.value}); touch(); });
   $$(T+"[data-vv]").forEach(el=>el.oninput=()=>{ const [w,k]=el.dataset.vv.split("."); const v=num(el.value); if(v===null) delete day[w][k]; else day[w][k]=v; stamp("v:"+w); touch(); });
+  // 外部到訪
+  const vRec=id=>(day.visits[id]=day.visits[id]||{});
+  $$(T+"[data-vst]").forEach(el=>el.onclick=()=>{ const id=el.dataset.vst, r=vRec(id), k=el.dataset.v, today=curDay===iso(new Date());
+    r.st = r.st===k ? "" : k;
+    if(r.st==="in"&&!r.in&&today) r.in=nowHM();
+    if(r.st==="done"){ if(!r.out&&today) r.out=nowHM(); }
+    if(r.st&&r.st!=="no"&&/洗澡|Mandi/.test(id)){ day.bath=true; const b=$('[data-t="bath"]'); if(b) b.checked=true; }
+    stamp("visit:"+id, !!r.st); touch(); renderTimeline(); });
+  $$(T+"[data-vin]").forEach(el=>el.onchange=()=>{ vRec(el.dataset.vin).in=el.value; touch(); });
+  $$(T+"[data-vout]").forEach(el=>el.onchange=()=>{ vRec(el.dataset.vout).out=el.value; touch(); });
+  $$(T+"[data-vnote]").forEach(el=>el.oninput=()=>{ vRec(el.dataset.vnote).note=el.value; touch(); });
+  $$(T+"[data-t2]").forEach(el=>el.onchange=()=>{ const k=el.dataset.t2; day[k]=el.checked; const b=$(`[data-t="${k}"]`); if(b) b.checked=el.checked; stamp("t:"+k, el.checked); touch(); });
+  $$(T+"[data-skip]").forEach(el=>el.onclick=e=>{ e.preventDefault(); e.stopPropagation(); openSkip(el.dataset.skip); });
   // 翻身
   $$(T+"[data-turnpos]").forEach(el=>el.onclick=()=>{ const t=el.dataset.turnpos; day.turns[t]=Object.assign(day.turns[t]||{},{pos:el.dataset.v});
     $$(`${T}[data-turnpos="${t}"]`).forEach(b=>b.setAttribute("aria-pressed",b===el)); touch(); });
@@ -805,7 +880,8 @@ function markDone(el){ const slot=el.closest(".slot"); if(!slot) return; const t
   if(cfg.vAm===t) items.push({kind:"vital",which:"vam"}); if(cfg.vPm===t) items.push({kind:"vital",which:"vpm"});
   parseMilks(cfg.milks).filter(m=>m.t===t).forEach(m=>items.push({kind:"milk",t}));
   parseTurns(cfg.turns).filter(m=>m.t===t).forEach(m=>items.push({kind:"turn",t}));
-  parseTasks(cfg.tasks).filter(m=>m.t===t).forEach(m=>items.push(Object.assign({kind:"task"},m)));
+  tasksFor(curDay).filter(m=>m.t===t).forEach(m=>items.push(Object.assign({kind:"task"},m)));
+  plannedVisits(curDay).filter(v=>!v.off&&v.t===t).forEach(v=>items.push({kind:"visit",v}));
   slot.classList.toggle("done",slotDone(items)); }
 function updateLive(){
   const T="#timeline ", alerts=[];
@@ -1057,6 +1133,8 @@ function renderSettings(){
     <input type="color" data-pc="${p.id}" value="${esc(p.color)}" aria-label="顏色">${p.id==="other"?`<span class="zh">其他 Lainnya</span>`:`<input type="text" data-pn="${p.id}" value="${esc(p.name)}">`}</div></div>`).join("");
   const opts=v=>`<option value="">（未安排）</option>`+people().filter(p=>p.id!=="other").map(p=>`<option value="${p.id}" ${v===p.id?"selected":""}>${esc(p.name)}</option>`).join("");
   $$("[data-s]").forEach(el=>{ const k=el.dataset.s; if(el.tagName==="SELECT") el.innerHTML=opts(cfg[k]); else el.value=cfg[k]||""; });
+  $$("[data-rest]").forEach(el=>{ const v=String(cfg[el.dataset.rest]??""); el.innerHTML=`<option value="">（不固定）</option>`+[1,2,3,4,5,6,0].map(i=>`<option value="${i}" ${v===String(i)?"selected":""}>星期${WD_ZH[i]} ${WD_ID[i]}</option>`).join(""); });
+  $("#setVisits").value=cfg.visits||"";
 }
 $("#saveCfg").onclick=async()=>{
   const n=clone(cfg);
@@ -1066,6 +1144,8 @@ $("#saveCfg").onclick=async()=>{
   n.tasks=$("#setTasks").value; n.milks=$("#setMilks").value; n.milkTypes=$("#setMilkTypes").value; n.turns=$("#setTurns").value;
   n.people=people().map(p=>Object.assign({},p,{color:$(`[data-pc="${p.id}"]`)?.value||p.color, name:($(`[data-pn="${p.id}"]`)?.value||"").trim()||p.name}));
   $$("[data-s]").forEach(el=>n[el.dataset.s]=el.value);
+  $$("[data-rest]").forEach(el=>n[el.dataset.rest]=el.value);
+  n.visits=$("#setVisits").value;
   if(!n.dayStart||!n.nightStart||n.dayStart>=n.nightStart){ $("#cfgState").textContent="⚠ 日班開始時間要早於夜班開始時間"; return; }
   if((n.weFrom||n.weTo)&&!(n.weFrom&&n.weTo&&n.weFrom<n.weTo)){ $("#cfgState").textContent="⚠ 週末家人接手的開始時間要早於結束時間（或兩格都留空）"; return; }
   const types=lines(n.milkTypes), bad=parseMilks(n.milks).filter(m=>!types.includes(m.type));
@@ -1100,7 +1180,10 @@ function mix(a,b,t){ const x=hexRGB(a), y=hexRGB(b); if(!x||!y) return ""; retur
 /* ---- 班表資料 ---- */
 function defaultSched(date){
   const wd=parse(date).getDay(), we=(wd===0||wd===6)&&cfg.weFrom&&cfg.weTo&&cfg.weFrom<cfg.weTo;
-  return {date, day:cfg.defDay||"", night:cfg.defNight||"", blocks:we?[{from:cfg.weFrom,to:cfg.weTo,who:""}]:[], note:"", _def:true};
+  const rests=c=>{ const k={cg1:"restCg1",cg2:"restCg2"}[c]; return !!k && cfg[k]!=="" && cfg[k]!==undefined && cfg[k]!==null && Number(cfg[k])===wd; };
+  let dayW=cfg.defDay||"", nightW=cfg.defNight||""; const rest=[];
+  if(rests(dayW)){ rest.push(dayW); dayW=""; } if(rests(nightW)){ rest.push(nightW); nightW=""; }
+  return {date, day:dayW, night:nightW, blocks:we?[{from:cfg.weFrom,to:cfg.weTo,who:""}]:[], note:rest.length?rest.map(c=>person(c)?.name).join("、")+" 例休 Libur mingguan":"", _def:true, _rest:rest};
 }
 const sched=date=>schedMap[date]||defaultSched(date);
 async function loadSched(from,to){
@@ -1149,11 +1232,38 @@ function setFiller(code){
   else { const nx=nextDuty(); store.set("care_filler",JSON.stringify({who:code,until:Math.min(nx?nx.ts:Infinity,Date.now()+12*3600e3)})); }
   refreshDuty(); paintBy();
 }
-function stamp(key,on){ day.by=day.by||{}; const c=fillerCode(); if(on===false||!c) delete day.by[key]; else day.by[key]=c; }
-function paintBy(){
-  $$("[data-by]").forEach(el=>{ const p=person(day.by&&day.by[el.dataset.by]);
-    if(p){ el.textContent="✓ 記錄 "+p.name; el.style.setProperty("--pc",p.color); el.title="實際記錄者 Pencatat"; } else el.textContent=""; });
+function stamp(key,on){ day.by=day.by||{}; day.at=day.at||{}; const c=fillerCode();
+  if(on===false){ delete day.by[key]; delete day.at[key]; return; }
+  if(c) day.by[key]=c;
+  if(!day.at[key] && curDay===iso(new Date())) day.at[key]=nowHM();
+  if(day.skip&&day.skip[key]){ delete day.skip[key]; }
 }
+function paintBy(){
+  $$("[data-by]").forEach(el=>{ const k=el.dataset.by, p=person(day.by&&day.by[k]), at=day.at&&day.at[k], st=el.dataset.t;
+    if(p){ const late=(at&&st)?toMin(at)-toMin(st):0;
+      el.textContent="✓ 記錄 "+p.name+(at?" "+at:"")+(late>=30?` · 晚 ${late} 分 telat`:"");
+      el.style.setProperty("--pc",p.color); el.title="實際記錄者與時間 Pencatat & jam"; } else el.textContent=""; });
+  $$("[data-skipnote]").forEach(el=>{ const x=day.skip&&day.skip[el.dataset.skipnote], p=x&&person(x.by);
+    el.textContent=x?`✕ 未做 Tidak dilakukan：${x.r}${x.note?"（"+x.note+"）":""}${p?" · "+p.name:""}`:""; });
+  $$("[data-skip]").forEach(b=>b.classList.toggle("on",!!(day.skip&&day.skip[b.dataset.skip])));
+}
+
+/* 未做原因 */
+const SKIP_R=["外人到訪 Ada terapis/dokter","爸爸睡著 Bapak tidur","爸爸不舒服 Bapak kurang sehat","時間來不及 Tidak sempat","家人指示 Instruksi keluarga","其他 Lainnya"];
+let skipKey=null, skipSel=null;
+function openSkip(key){ skipKey=key; const x=day.skip[key]||{}; skipSel=x.r||null;
+  $("#skipBody").innerHTML=`<div class="rule">Pilih alasan. 請選原因，家人和醫生會在報表看到。</div>
+    <div class="chips" style="margin:8px 0">${SKIP_R.map(r=>`<button type="button" class="chip" data-sr="${esc(r)}" aria-pressed="${skipSel===r}">${esc(r)}</button>`).join("")}</div>
+    <div class="field"><label>補充 Keterangan <span class="zh">（可不填，例：邱醫生 16:00 來針灸）</span></label><input type="text" id="skipNote" value="${esc(x.note||"")}" style="width:100%;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--surface2);font-size:16px"></div>`;
+  $$("#skipBody [data-sr]").forEach(b=>b.onclick=()=>{ skipSel=b.dataset.sr; $$("#skipBody [data-sr]").forEach(x=>x.setAttribute("aria-pressed",x===b)); });
+  $("#dlgSkip").showModal(); }
+$("#skipOk").onclick=()=>{ if(!skipSel){ flash("請選原因 Pilih alasan"); return; }
+  day.skip[skipKey]={r:skipSel, note:$("#skipNote").value.trim(), by:fillerCode(), at:curDay===iso(new Date())?nowHM():""};
+  const [kind,...rest]=skipKey.split(":"), id=rest.join(":");
+  if(kind==="task"){ day.tasks[id]=false; } if(kind==="turn"&&day.turns[id]){ day.turns[id].done=false; day.turns[id].at=""; }
+  delete day.by[skipKey]; delete day.at[skipKey];
+  $("#dlgSkip").close(); renderTimeline(); day.rehab=$$("#timeline [data-pijat]").filter(x=>x.checked).length; touch(); };
+$("#skipClear").onclick=()=>{ delete day.skip[skipKey]; $("#dlgSkip").close(); renderTimeline(); touch(); };
 
 function dutyCard(withPicker){
   const today=iso(new Date()), cur=dutyInfo(today,nowHM()), f=filler(), p=person(f.code), sp=person(cur.who), nx=nextDuty();
@@ -1237,6 +1347,7 @@ function drawJadwal(){
       <div class="dt"><b>${parse(d).getDate()}</b><span>${WD_ZH[wd]} ${WD_ID[wd].slice(0,3)}</span></div>
       <div class="sh">${whoTag(sd.day,"☀️")}${whoTag(sd.night,"🌙")}
         ${(sd.blocks||[]).map(b=>whoTag(b.who,"👪 "+b.from+"–"+b.to)).join("")}
+        ${plannedVisits(d).map(v=>`<span class="vtag ${v.off?"off":""}">🧑‍⚕️ ${v.t} ${esc(v.who)}${v.off?" 取消":v.moved?" 改時間":""}</span>`).join("")}
         ${dayLv.map(l=>`<span class="badge ${esc(l.status)}">🏖 ${esc(person(l.who)?.name||"")} ${l.status==="ok"?"休假":l.status==="no"?"不同意":"待確認"}</span>`).join("")}
         ${sd._def&&canArrange()?`<span class="def">預設，尚未寫入</span>`:""}
         ${dayWarnings(sd).map(([c,x])=>`<span class="w ${c}">⚠ ${esc(x)}</span>`).join("")}
@@ -1255,7 +1366,7 @@ function pickHTML(key,val,kinds){
     <button type="button" class="chip" data-pk="${key}" data-v="" aria-pressed="${!val}">未安排 Kosong</button></div>
     ${isO?`<input type="text" class="othname" data-ok="${key}" placeholder="請輸入名字 Masukkan nama" value="${esc(val.slice(6))}">`:""}`;
 }
-function openDay(date){ if(!canArrange()) return; edit=clone(sched(date)); delete edit._def; edit.blocks=edit.blocks||[]; $("#dayState").textContent=""; drawDayDlg(); $("#dlgDay").showModal(); }
+function openDay(date){ if(!canArrange()) return; edit=clone(sched(date)); delete edit._def; delete edit._rest; edit.blocks=edit.blocks||[]; edit.vis=edit.vis||{}; edit.extra=edit.extra||[]; $("#dayState").textContent=""; drawDayDlg(); $("#dlgDay").showModal(); }
 function setEditVal(key,v){ if(key==="day"||key==="night") edit[key]=v; else edit.blocks[Number(key.slice(1))].who=v; }
 function drawDayDlg(){
   const d=edit.date, wd=parse(d).getDay(), ds=cfg.dayStart||"07:00", ns=cfg.nightStart||"19:00";
@@ -1267,6 +1378,12 @@ function drawDayDlg(){
         <div style="margin-top:8px">${pickHTML("b"+i,b.who,["fam"])}</div>
         <button type="button" class="chip" data-bdel="${i}" style="margin-top:8px">🗑 刪除這個時段</button></div>`).join("")}
       <button type="button" class="btn" id="addBlk">＋ 新增家人接手時段</button></div>
+    <div class="field"><label>🧑‍⚕️ 外部人員到訪 Kunjungan（改時間或這天不來）</label>
+      ${parseVisits(cfg.visits).filter(v=>v.wd.includes(wd)).map(v=>{ const a=edit.vis[v.id]||{};
+        return `<div class="vrow"><span>${esc(v.who)} <span class="zh">${esc(v.what)}</span></span><input type="time" data-vt="${esc(v.id)}" value="${esc(a.t||v.t)}" ${a.off?"disabled":""}>
+          <button type="button" class="chip" data-voff="${esc(v.id)}" aria-pressed="${!!a.off}">這天不來</button></div>`; }).join("")||`<div class="zh">這天沒有固定到訪</div>`}
+      ${edit.extra.map((x,i)=>`<div class="xrow"><input type="time" data-xt="${i}" value="${esc(x.t)}"><input type="text" data-xw="${i}" value="${esc(x.who)}" placeholder="誰 Siapa"><input type="text" data-xwhat="${i}" value="${esc(x.what)}" placeholder="做什麼 Apa"><input type="number" data-xm="${i}" value="${esc(x.min)}" placeholder="分"><button type="button" class="chip" data-xdel="${i}">🗑</button></div>`).join("")}
+      <div class="chips"><button type="button" class="btn" id="addVisit">＋ 臨時到訪</button><button type="button" class="btn" id="addTube">＋ 榮總換氣切管／鼻胃管（洗澡提早 07:00）</button></div></div>
     <div class="field"><label>備註 Catatan</label><textarea id="dayNote" style="min-height:60px">${esc(edit.note||"")}</textarea></div>
     ${dayWarnings(edit).map(([c,x])=>`<div class="hint ${c?"":"warn"}">⚠ ${esc(x)}</div>`).join("")}`;
   const B="#dayDlgBody ";
@@ -1276,11 +1393,23 @@ function drawDayDlg(){
   $$(B+"[data-bto]").forEach(i=>i.onchange=()=>{ edit.blocks[Number(i.dataset.bto)].to=i.value; drawDayDlg(); });
   $$(B+"[data-bdel]").forEach(b=>b.onclick=()=>{ edit.blocks.splice(Number(b.dataset.bdel),1); drawDayDlg(); });
   $("#addBlk").onclick=()=>{ edit.blocks.push({from:cfg.weFrom||"09:00",to:cfg.weTo||"12:00",who:""}); drawDayDlg(); };
+  const V=id=>(edit.vis[id]=edit.vis[id]||{});
+  $$(B+"[data-vt]").forEach(i=>i.onchange=()=>{ const reg=parseVisits(cfg.visits).find(v=>v.id===i.dataset.vt); const a=V(i.dataset.vt); if(reg&&i.value===reg.t) delete a.t; else a.t=i.value; });
+  $$(B+"[data-voff]").forEach(b=>b.onclick=()=>{ const a=V(b.dataset.voff); a.off=!a.off; drawDayDlg(); });
+  $$(B+"[data-xt]").forEach(i=>i.onchange=()=>edit.extra[Number(i.dataset.xt)].t=i.value);
+  $$(B+"[data-xw]").forEach(i=>i.oninput=()=>edit.extra[Number(i.dataset.xw)].who=i.value);
+  $$(B+"[data-xwhat]").forEach(i=>i.oninput=()=>edit.extra[Number(i.dataset.xwhat)].what=i.value);
+  $$(B+"[data-xm]").forEach(i=>i.oninput=()=>edit.extra[Number(i.dataset.xm)].min=num(i.value)??60);
+  $$(B+"[data-xdel]").forEach(b=>b.onclick=()=>{ edit.extra.splice(Number(b.dataset.xdel),1); drawDayDlg(); });
+  $("#addVisit").onclick=()=>{ edit.extra.push({t:"10:00",who:"",what:"",min:60}); drawDayDlg(); };
+  $("#addTube").onclick=()=>{ edit.extra.push({t:"08:00",who:"榮總醫師",what:"換氣切管＋鼻胃管 Ganti selang",min:60});
+    parseVisits(cfg.visits).filter(v=>v.wd.includes(wd)&&/洗澡|Mandi/.test(v.what)).forEach(v=>V(v.id).t="07:00"); drawDayDlg(); };
   $("#dayNote").oninput=e=>edit.note=e.target.value;
 }
 $("#dayOk").onclick=async()=>{
   const all=[edit.day,edit.night,...edit.blocks.map(b=>b.who)];
   if(all.some(c=>c==="other:")){ $("#dayState").textContent="⚠ 選了「其他」請輸入名字"; return; }
+  if(edit.extra.some(x=>!x.t||!String(x.who||"").trim())){ $("#dayState").textContent="⚠ 臨時到訪請填時間和誰"; return; }
   if(edit.blocks.some(b=>!b.from||!b.to||b.from>=b.to)){ $("#dayState").textContent="⚠ 家人接手的開始時間要早於結束時間"; return; }
   $("#dayState").textContent="儲存中…";
   try{ await api("saveSchedule",{days:[edit]}); schedMap[edit.date]=clone(edit); $("#dlgDay").close(); drawJadwal(); refreshDuty(); flash("班表已儲存 Jadwal tersimpan"); }
@@ -1288,7 +1417,7 @@ $("#dayOk").onclick=async()=>{
 };
 $("#jFill").onclick=async()=>{
   const [f,t]=monthRange(jMonth), days=[];
-  for(let d=f; d<=t; d=addDays(d,1)) if(!schedMap[d]){ const x=defaultSched(d); delete x._def; days.push(x); }
+  for(let d=f; d<=t; d=addDays(d,1)) if(!schedMap[d]){ const x=defaultSched(d); delete x._def; delete x._rest; days.push(x); }
   if(!days.length){ $("#jState").textContent="這個月每天都已經寫入了"; return; }
   if(!confirm(`要把 ${days.length} 天的預設班表寫入 Google 試算表嗎？之後仍可點每一天修改。`)) return;
   $("#jState").textContent="寫入中…";
